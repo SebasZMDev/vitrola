@@ -1,6 +1,7 @@
 package com.sebas.musicplayer.di
 
 import android.content.Context
+import com.sebas.musicplayer.data.library.CachingSongRepository
 import com.sebas.musicplayer.data.library.MediaStoreSongRepository
 import com.sebas.musicplayer.data.library.SongRepository
 import com.sebas.musicplayer.data.playlist.PlaylistRepository
@@ -16,7 +17,8 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     val songRepository: SongRepository by lazy {
-        MediaStoreSongRepository(appContext.contentResolver)
+        val resolver = appContext.contentResolver
+        CachingSongRepository(MediaStoreSongRepository(resolver), resolver)
     }
 
     val playerController: PlayerController by lazy {

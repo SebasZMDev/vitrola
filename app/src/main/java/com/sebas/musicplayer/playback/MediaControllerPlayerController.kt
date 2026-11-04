@@ -192,12 +192,12 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
         if (c.mediaItemCount == 0) {
             startWith(c, song)
         } else {
-            c.addMediaItem(c.currentMediaItemIndex + 1, song.toMediaItem())
+            insertAndPlayIfEnded(c, c.currentMediaItemIndex + 1, song)
         }
     }
 
     override fun addToQueue(song: Song) = withController { c ->
-        if (c.mediaItemCount == 0) startWith(c, song) else c.addMediaItem(song.toMediaItem())
+        if (c.mediaItemCount == 0) startWith(c, song) else insertAndPlayIfEnded(c, c.mediaItemCount, song)
     }
 
     override fun removeFromQueue(index: Int) = withController { c ->
@@ -207,6 +207,17 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
     override fun moveQueueItem(from: Int, to: Int) = withController { c ->
         val count = c.mediaItemCount
         if (from in 0 until count && to in 0 until count && from != to) c.moveMediaItem(from, to)
+    }
+
+    /** Inserta la canción; si la cola ya terminó, salta a ella y la reproduce. */
+    private fun insertAndPlayIfEnded(c: MediaController, index: Int, song: Song) {
+        val ended = c.playbackState == Player.STATE_ENDED
+        c.addMediaItem(index, song.toMediaItem())
+        if (ended) {
+            c.seekToDefaultPosition(index)
+            c.prepare()
+            c.play()
+        }
     }
 
     /** Cola vacía: la canción pasa a ser la cola entera y empieza a sonar. */

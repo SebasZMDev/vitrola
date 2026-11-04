@@ -43,9 +43,9 @@ class LibraryViewModel(
         if (!loaded) load()
     }
 
-    fun refresh() = load()
+    fun refresh() = load(forceRefresh = true)
 
-    private fun load() {
+    private fun load(forceRefresh: Boolean = false) {
         if (loading) return
         loading = true
         if (_uiState.value is LibraryUiState.Success) {
@@ -55,7 +55,7 @@ class LibraryViewModel(
         }
         viewModelScope.launch {
             try {
-                val songs = songRepository.getSongs()
+                val songs = songRepository.getSongs(forceRefresh)
                 _uiState.value = if (songs.isEmpty()) LibraryUiState.Empty else LibraryUiState.Success(songs)
                 loaded = true
             } catch (e: CancellationException) {

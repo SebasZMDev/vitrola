@@ -19,7 +19,7 @@ class MediaStoreSongRepository(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SongRepository {
 
-    override suspend fun getSongs(): List<Song> = withContext(ioDispatcher) {
+    override suspend fun getSongs(forceRefresh: Boolean): List<Song> = withContext(ioDispatcher) {
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         } else {
