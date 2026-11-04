@@ -20,6 +20,17 @@ interface PlayerController {
     fun toggleShuffle()
     /** OFF -> ALL -> ONE -> OFF */
     fun cycleRepeatMode()
+
+    // --- Cola. Los índices son posiciones en PlayerState.queue (orden de la cola, no el orden aleatorio). ---
+
+    /** Salta a la canción en [index] de la cola y reproduce. */
+    fun skipToQueueItem(index: Int)
+    /** Inserta [song] justo después de la actual. Si la cola está vacía, empieza a reproducirla. */
+    fun playNext(song: Song)
+    /** Agrega [song] al final de la cola. Si la cola está vacía, empieza a reproducirla. */
+    fun addToQueue(song: Song)
+    fun removeFromQueue(index: Int)
+    fun moveQueueItem(from: Int, to: Int)
 }
 
 data class PlayerState(

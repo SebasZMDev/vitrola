@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -64,6 +65,9 @@ fun NowPlayingRoute(
         onSeekTo = viewModel::seekTo,
         onToggleShuffle = viewModel::toggleShuffle,
         onCycleRepeat = viewModel::cycleRepeatMode,
+        onSkipToQueueItem = viewModel::skipToQueueItem,
+        onRemoveFromQueue = viewModel::removeFromQueue,
+        onMoveQueueItem = viewModel::moveQueueItem,
     )
 }
 
@@ -78,8 +82,21 @@ fun NowPlayingScreen(
     onSeekTo: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
+    onSkipToQueueItem: (Int) -> Unit,
+    onRemoveFromQueue: (Int) -> Unit,
+    onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showQueue by remember { mutableStateOf(false) }
+    if (showQueue) {
+        QueueSheet(
+            state = state,
+            onDismiss = { showQueue = false },
+            onSkipToItem = onSkipToQueueItem,
+            onRemove = onRemoveFromQueue,
+            onMove = onMoveQueueItem,
+        )
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -90,6 +107,11 @@ fun NowPlayingScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Cerrar")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showQueue = true }) {
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Cola")
                     }
                 },
             )
@@ -283,6 +305,9 @@ private fun NowPlayingScreenPreview() {
             onSeekTo = {},
             onToggleShuffle = {},
             onCycleRepeat = {},
+            onSkipToQueueItem = {},
+            onRemoveFromQueue = {},
+            onMoveQueueItem = { _, _ -> },
         )
     }
 }

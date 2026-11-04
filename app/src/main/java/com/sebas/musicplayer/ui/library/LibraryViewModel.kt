@@ -74,9 +74,10 @@ class LibraryViewModel(
         playerController.playQueue(songs, index)
     }
 
-    fun togglePlayPause() = playerController.togglePlayPause()
-    fun next() = playerController.next()
-    fun previous() = playerController.previous()
+    fun onShuffleClick() {
+        val songs = (_uiState.value as? LibraryUiState.Success)?.songs ?: return
+        playerController.playQueue(songs.shuffled(), 0)
+    }
 
     companion object {
         val Factory = viewModelFactory {

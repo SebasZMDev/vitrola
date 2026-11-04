@@ -182,6 +182,40 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
         }
     }
 
+    override fun skipToQueueItem(index: Int) = withController { c ->
+        if (index !in 0 until c.mediaItemCount) return@withController
+        c.seekToDefaultPosition(index)
+        c.play()
+    }
+
+    override fun playNext(song: Song) = withController { c ->
+        if (c.mediaItemCount == 0) {
+            startWith(c, song)
+        } else {
+            c.addMediaItem(c.currentMediaItemIndex + 1, song.toMediaItem())
+        }
+    }
+
+    override fun addToQueue(song: Song) = withController { c ->
+        if (c.mediaItemCount == 0) startWith(c, song) else c.addMediaItem(song.toMediaItem())
+    }
+
+    override fun removeFromQueue(index: Int) = withController { c ->
+        if (index in 0 until c.mediaItemCount) c.removeMediaItem(index)
+    }
+
+    override fun moveQueueItem(from: Int, to: Int) = withController { c ->
+        val count = c.mediaItemCount
+        if (from in 0 until count && to in 0 until count && from != to) c.moveMediaItem(from, to)
+    }
+
+    /** Cola vacía: la canción pasa a ser la cola entera y empieza a sonar. */
+    private fun startWith(c: MediaController, song: Song) {
+        c.setMediaItem(song.toMediaItem())
+        c.prepare()
+        c.play()
+    }
+
     private fun Int.toRepeatMode() = when (this) {
         Player.REPEAT_MODE_ALL -> RepeatMode.ALL
         Player.REPEAT_MODE_ONE -> RepeatMode.ONE
