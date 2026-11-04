@@ -35,6 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sebas.musicplayer.ui.browse.AlbumDetailRoute
 import com.sebas.musicplayer.ui.browse.ArtistDetailRoute
+import com.sebas.musicplayer.ui.equalizer.EqualizerRoute
 import com.sebas.musicplayer.ui.home.HomeScreen
 import com.sebas.musicplayer.ui.nowplaying.NowPlayingRoute
 import com.sebas.musicplayer.ui.permissions.AudioPermissionGate
@@ -51,6 +52,7 @@ private object Routes {
     const val ALBUM = "album/{albumId}"
     const val ARTIST = "artist/{artistName}"
     const val PLAYLIST = "playlist/{playlistId}"
+    const val EQUALIZER = "equalizer"
 
     fun album(id: Long) = "album/$id"
     fun artist(name: String) = "artist/${Uri.encode(name)}"
@@ -144,7 +146,13 @@ private fun AppNavHost(navController: NavHostController) {
             popEnterTransition = { slideInVertically { it } + fadeIn() },
             popExitTransition = { slideOutVertically { it } + fadeOut() },
         ) {
-            NowPlayingRoute(onBack = back)
+            NowPlayingRoute(
+                onBack = back,
+                onOpenEqualizer = { navController.navigate(Routes.EQUALIZER) { launchSingleTop = true } },
+            )
+        }
+        pushScreen(Routes.EQUALIZER) {
+            EqualizerRoute(onBack = back)
         }
     }
 }

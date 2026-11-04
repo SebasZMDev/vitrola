@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import com.sebas.musicplayer.ui.sleeptimer.SleepTimerAction
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -53,6 +55,7 @@ import com.sebas.musicplayer.ui.theme.MusicPlayerTheme
 @Composable
 fun NowPlayingRoute(
     onBack: () -> Unit,
+    onOpenEqualizer: () -> Unit,
     viewModel: NowPlayingViewModel = viewModel(factory = NowPlayingViewModel.Factory),
 ) {
     val state by viewModel.playerState.collectAsStateWithLifecycle()
@@ -68,6 +71,7 @@ fun NowPlayingRoute(
         onSkipToQueueItem = viewModel::skipToQueueItem,
         onRemoveFromQueue = viewModel::removeFromQueue,
         onMoveQueueItem = viewModel::moveQueueItem,
+        onOpenEqualizer = onOpenEqualizer,
     )
 }
 
@@ -86,6 +90,7 @@ fun NowPlayingScreen(
     onRemoveFromQueue: (Int) -> Unit,
     onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenEqualizer: () -> Unit = {},
 ) {
     var showQueue by remember { mutableStateOf(false) }
     if (showQueue) {
@@ -110,6 +115,10 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
+                    SleepTimerAction()
+                    IconButton(onClick = onOpenEqualizer) {
+                        Icon(Icons.Default.Equalizer, contentDescription = "Ecualizador")
+                    }
                     IconButton(onClick = { showQueue = true }) {
                         Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Cola")
                     }
