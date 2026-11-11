@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,7 +78,10 @@ private fun AppShell() {
     val playerBarViewModel: PlayerBarViewModel = viewModel(factory = PlayerBarViewModel.Factory)
     val playerState by playerBarViewModel.playerState.collectAsStateWithLifecycle()
 
-    val showPlayerBar = playerState.currentSong != null && backStackEntry?.destination?.route != Routes.NOW_PLAYING
+    // playerState cambia cada 500 ms con la posición; derivedStateOf evita recomponer toda la
+    // pantalla salvo que de verdad cambie la visibilidad. Solo PlayerBar lee la posición.
+    val hasSong by remember { derivedStateOf { playerState.currentSong != null } }
+    val showPlayerBar = hasSong && backStackEntry?.destination?.route != Routes.NOW_PLAYING
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Con el mini reproductor visible, él se encarga del inset de la barra de navegación;

@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,8 @@ fun PlaylistDetailRoute(playlistId: Long, onBack: () -> Unit) {
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
+    // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
+    val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
     var showRename by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
 
@@ -62,7 +65,7 @@ fun PlaylistDetailRoute(playlistId: Long, onBack: () -> Unit) {
 
     PlaylistDetailContent(
         state = state,
-        currentSongId = playerState.currentSong?.id,
+        currentSongId = currentSongId,
         onBack = onBack,
         onRename = { showRename = true },
         onDelete = { showDelete = true },

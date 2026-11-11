@@ -39,7 +39,6 @@ fun SongMenuButton(
     song: Song,
     extraItems: (@Composable (dismiss: () -> Unit) -> Unit)? = null,
 ) {
-    val viewModel: SongActionsViewModel = viewModel(factory = SongActionsViewModel.Factory)
     var expanded by remember { mutableStateOf(false) }
     var showPlaylistDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -47,23 +46,28 @@ fun SongMenuButton(
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Reproducir siguiente") },
-                leadingIcon = { Icon(Icons.Default.SkipNext, contentDescription = null) },
-                onClick = { expanded = false; viewModel.playNext(song) },
-            )
-            DropdownMenuItem(
-                text = { Text("Agregar a la cola") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                onClick = { expanded = false; viewModel.addToQueue(song) },
-            )
-            DropdownMenuItem(
-                text = { Text("Agregar a playlist") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                onClick = { expanded = false; showPlaylistDialog = true },
-            )
-            extraItems?.invoke { expanded = false }
+        // Cada fila de la lista tiene un botón: el ViewModel y el menú solo se crean al abrirlo,
+        // no al hacer scroll (antes se componían para todas las filas visibles).
+        if (expanded) {
+            val viewModel: SongActionsViewModel = viewModel(factory = SongActionsViewModel.Factory)
+            DropdownMenu(expanded = true, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Reproducir siguiente") },
+                    leadingIcon = { Icon(Icons.Default.SkipNext, contentDescription = null) },
+                    onClick = { expanded = false; viewModel.playNext(song) },
+                )
+                DropdownMenuItem(
+                    text = { Text("Agregar a la cola") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                    onClick = { expanded = false; viewModel.addToQueue(song) },
+                )
+                DropdownMenuItem(
+                    text = { Text("Agregar a playlist") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                    onClick = { expanded = false; showPlaylistDialog = true },
+                )
+                extraItems?.invoke { expanded = false }
+            }
         }
     }
 

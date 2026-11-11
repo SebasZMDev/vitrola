@@ -24,7 +24,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -46,13 +48,15 @@ fun SongsTab(modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
+    // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
+    val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
 
     LaunchedEffect(Unit) { viewModel.loadSongs() }
 
     SongsContent(
         uiState = uiState,
         isRefreshing = isRefreshing,
-        currentSongId = playerState.currentSong?.id,
+        currentSongId = currentSongId,
         onRefresh = viewModel::refresh,
         onSongClick = viewModel::onSongClick,
         onShuffleClick = viewModel::onShuffleClick,

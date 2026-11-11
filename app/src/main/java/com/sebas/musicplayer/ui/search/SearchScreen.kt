@@ -35,6 +35,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,11 +71,13 @@ fun SearchRoute(onBack: () -> Unit, onAlbumClick: (Long) -> Unit, onArtistClick:
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
+    // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
+    val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
 
     SearchContent(
         query = query,
         results = results,
-        currentSongId = playerState.currentSong?.id,
+        currentSongId = currentSongId,
         onQueryChange = viewModel::onQueryChange,
         onBack = onBack,
         onSongClick = viewModel::onSongClick,

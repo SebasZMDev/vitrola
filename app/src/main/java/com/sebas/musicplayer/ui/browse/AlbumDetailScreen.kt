@@ -17,7 +17,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -37,11 +39,13 @@ fun AlbumDetailRoute(albumId: Long, onBack: () -> Unit) {
     val viewModel: BrowseViewModel = viewModel(factory = BrowseViewModel.Factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val player by viewModel.playerState.collectAsStateWithLifecycle()
+    // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
+    val currentSongId by remember { derivedStateOf { player.currentSong?.id } }
     val album = (state as? BrowseState.Loaded)?.albums?.firstOrNull { it.id == albumId }
     AlbumDetailScreen(
         state = state,
         album = album,
-        currentSongId = player.currentSong?.id,
+        currentSongId = currentSongId,
         onBack = onBack,
         onRetry = viewModel::load,
         onPlay = viewModel::play,

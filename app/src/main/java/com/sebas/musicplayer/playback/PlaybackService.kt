@@ -5,16 +5,24 @@ import android.content.Intent
 import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.sebas.musicplayer.MusicApp
+import com.sebas.musicplayer.playback.session.QueueStore
 import com.sebas.musicplayer.ui.MainActivity
 
 class PlaybackService : MediaSessionService() {
 
     private var player: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
+
+    private val queueStore by lazy { QueueStore(this) }
+
+    /** Fallos seguidos al reproducir; si falla toda la cola paramos en vez de saltar en bucle. */
+    private var consecutiveErrors = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -48,14 +56,68 @@ class PlaybackService : MediaSessionService() {
         // Temporizador y ecualizador necesitan el ExoPlayer real (vive aquí, no en la UI).
         container.sleepTimer.attach(exo)
         container.audioEffects.attach(audioSessionId)
+
+        restoreQueue(exo)
+        exo.addListener(persistListener)
+        exo.addListener(skipBrokenListener)
     }
 
     private val container get() = (application as MusicApp).container
 
+    private fun restoreQueue(exo: ExoPlayer) {
+        val saved = queueStore.load() ?: return
+        exo.shuffleModeEnabled = saved.shuffle
+        exo.repeatMode = saved.repeatMode
+        exo.setMediaItems(queueStore.toMediaItems(saved), saved.index, saved.positionMs)
+        exo.prepare() // queda en pausa: no suena nada hasta que el usuario pulse play
+    }
+
+    /** Guarda la cola cuando cambia algo relevante (no en cada tick de posición). */
+    private val persistListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(
+                    Player.EVENT_TIMELINE_CHANGED,
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+                    Player.EVENT_REPEAT_MODE_CHANGED,
+                )
+            ) {
+                queueStore.save(player)
+            }
+            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED) && player.isPlaying) consecutiveErrors = 0
+        }
+    }
+
+    /** Si un archivo desapareció o no se puede leer, salta a la siguiente canción. */
+    private val skipBrokenListener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            val exo = player ?: return
+            consecutiveErrors++
+            val canSkip = exo.hasNextMediaItem() && consecutiveErrors < exo.mediaItemCount
+            if (canSkip) {
+                exo.seekToNextMediaItem()
+                // playWhenReady no cambia con un error: si estaba pausada (p. ej. cola restaurada)
+                // sigue pausada, y si sonaba sigue sonando en la siguiente.
+                exo.prepare()
+            } else {
+                exo.stop()
+                consecutiveErrors = 0
+            }
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Guarda la posición exacta al cerrar la app desde recientes; si no suena, apaga el servicio.
+        player?.let { queueStore.save(it) }
+        if (player?.playWhenReady != true) stopSelf()
+    }
+
     override fun onDestroy() {
+        player?.let { queueStore.save(it) }
         container.sleepTimer.detach()
         container.audioEffects.detach()
         mediaSession?.release()

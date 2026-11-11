@@ -35,10 +35,19 @@ class MediaStoreSongRepository(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DISPLAY_NAME,
         )
-        // Solo música y descarta sonidos cortos (< 30 s)
+        // Solo música, sin sonidos cortos (< 30 s) y sin audios de WhatsApp (notas de voz y audios
+        // recibidos: cualquier ruta que contenga "WhatsApp", incluye WhatsApp Business).
+        // RELATIVE_PATH existe desde Android 10; antes se filtra por la ruta completa (DATA).
+        val pathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.RELATIVE_PATH
+        } else {
+            @Suppress("DEPRECATION")
+            MediaStore.Audio.Media.DATA
+        }
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
-            "${MediaStore.Audio.Media.DURATION} >= ?"
-        val selectionArgs = arrayOf(MIN_DURATION_MS.toString())
+            "${MediaStore.Audio.Media.DURATION} >= ? AND " +
+            "COALESCE($pathColumn, '') NOT LIKE ? COLLATE NOCASE"
+        val selectionArgs = arrayOf(MIN_DURATION_MS.toString(), "%WhatsApp%")
         val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
         val songs = mutableListOf<Song>()
