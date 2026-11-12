@@ -16,6 +16,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.sebas.musicplayer.ui.browse.AlbumsTab
@@ -35,7 +39,14 @@ fun HomeScreen(
     onArtistClick: (String) -> Unit,
     onPlaylistClick: (Long) -> Unit,
 ) {
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val prefs = LocalContext.current.applicationContext.getSharedPreferences("ui_state", 0)
+    val pagerState = rememberPagerState(
+        initialPage = prefs.getInt("home_tab", 0).coerceIn(0, tabs.lastIndex),
+        pageCount = { tabs.size },
+    )
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { page -> prefs.edit { putInt("home_tab", page) } }
+    }
     val scope = rememberCoroutineScope()
 
     Scaffold(
