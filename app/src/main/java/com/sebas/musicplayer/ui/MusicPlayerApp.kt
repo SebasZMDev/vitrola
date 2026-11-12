@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
+import com.sebas.musicplayer.ui.components.LocalIsPlaying
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -82,7 +84,9 @@ private fun AppShell() {
     // pantalla salvo que de verdad cambie la visibilidad. Solo PlayerBar lee la posición.
     val hasSong by remember { derivedStateOf { playerState.currentSong != null } }
     val showPlayerBar = hasSong && backStackEntry?.destination?.route != Routes.NOW_PLAYING
+    val isPlaying by remember { derivedStateOf { playerState.isPlaying } }
 
+    CompositionLocalProvider(LocalIsPlaying provides isPlaying) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Con el mini reproductor visible, él se encarga del inset de la barra de navegación;
         // las pantallas de arriba no deben sumarlo otra vez.
@@ -105,6 +109,7 @@ private fun AppShell() {
                 onClick = { navController.navigate(Routes.NOW_PLAYING) { launchSingleTop = true } },
             )
         }
+    }
     }
 }
 

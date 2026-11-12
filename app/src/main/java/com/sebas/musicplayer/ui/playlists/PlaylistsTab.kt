@@ -2,9 +2,9 @@ package com.sebas.musicplayer.ui.playlists
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -29,13 +31,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sebas.musicplayer.domain.model.Playlist
+import com.sebas.musicplayer.ui.components.EmptyState
 
 /** Pestaña "Playlists" de HomeScreen. Sin Scaffold: solo el contenido. */
 @Composable
@@ -90,48 +96,55 @@ private fun PlaylistsContent(
     onDelete: (Playlist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onNewPlaylist).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            Text(
-                "Nueva playlist",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 12.dp),
+    if (playlists.isEmpty()) {
+        EmptyState(
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
+            title = "Aún no tienes playlists",
+            message = "Crea una y agrégale canciones desde el menú ⋮ de cualquier canción.",
+            modifier = modifier,
+            action = {
+                Button(onClick = onNewPlaylist) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("Crear playlist", Modifier.padding(start = 8.dp))
+                }
+            },
+        )
+        return
+    }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        item(key = "new", contentType = "new") { NewPlaylistRow(onNewPlaylist) }
+        items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
+            PlaylistRow(
+                playlist = playlist,
+                onClick = { onPlaylistClick(playlist.id) },
+                onRename = { onRename(playlist) },
+                onDelete = { onDelete(playlist) },
             )
         }
-        if (playlists.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("Aún no tienes playlists", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Usa ⋮ › Agregar a playlist en cualquier canción",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-        } else {
-            LazyColumn(Modifier.fillMaxSize()) {
-                items(playlists, key = { it.id }) { playlist ->
-                    PlaylistRow(
-                        playlist = playlist,
-                        onClick = { onPlaylistClick(playlist.id) },
-                        onRename = { onRename(playlist) },
-                        onDelete = { onDelete(playlist) },
-                    )
-                }
-            }
+    }
+}
+
+@Composable
+private fun NewPlaylistRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(56.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
+        Text(
+            "Nueva playlist",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp),
+        )
     }
 }
 
@@ -150,18 +163,20 @@ private fun PlaylistRow(
             .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(playlist.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        PlaylistTile(size = 56.dp, cornerRadius = 12.dp)
+        Column(Modifier.weight(1f).padding(start = 16.dp)) {
+            Text(
+                playlist.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 songCountLabel(playlist.songCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
         Box {
@@ -173,6 +188,26 @@ private fun PlaylistRow(
                 DropdownMenuItem(text = { Text("Eliminar") }, onClick = { expanded = false; onDelete() })
             }
         }
+    }
+}
+
+/** "Carátula" de una playlist: cuadro con degradado del tema y el ícono de lista. */
+@Composable
+internal fun PlaylistTile(size: Dp, cornerRadius: Dp, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer))),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.QueueMusic,
+            contentDescription = null,
+            tint = colors.onPrimaryContainer,
+            modifier = Modifier.size(size * 0.45f),
+        )
     }
 }
 

@@ -22,6 +22,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.sp
+import com.sebas.musicplayer.ui.browse.ArtistAvatar
+import com.sebas.musicplayer.ui.components.EmptyState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,44 +121,60 @@ private fun SearchContent(
     Scaffold(
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
-                    }
-                },
-                title = {
-                    TextField(
-                        value = query,
-                        onValueChange = onQueryChange,
-                        placeholder = { Text("Buscar canciones, álbumes, artistas") },
-                        singleLine = true,
-                        trailingIcon = {
-                            if (query.isNotEmpty()) {
-                                IconButton(onClick = { onQueryChange("") }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Borrar")
-                                }
+            Row(
+                modifier = Modifier.statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                }
+                val fieldColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                TextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Canciones, álbumes o artistas", maxLines = 1) },
+                    singleLine = true,
+                    shape = CircleShape,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { onQueryChange("") }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Borrar")
                             }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    )
-                },
-            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = fieldColor,
+                        unfocusedContainerColor = fieldColor,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                )
+            }
         },
     ) { padding ->
         val trimmed = query.trim()
         when {
-            trimmed.isEmpty() -> Message("Busca en tu música", Modifier.padding(padding))
-            results.isEmpty -> Message("Sin resultados para «$trimmed»", Modifier.padding(padding))
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding)) {
+            trimmed.isEmpty() -> EmptyState(
+                icon = Icons.Filled.Search,
+                title = "Busca en tu música",
+                message = "Escribe el nombre de una canción, un álbum o un artista.",
+                modifier = Modifier.padding(padding),
+            )
+            results.isEmpty -> EmptyState(
+                icon = Icons.Filled.SearchOff,
+                title = "Sin resultados",
+                message = "No encontramos nada para «$trimmed». Revisa cómo está escrito.",
+                modifier = Modifier.padding(padding),
+            )
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
                 if (results.songs.isNotEmpty()) {
                     item(key = "h_songs", contentType = "header") { SectionHeader("Canciones") }
                     itemsIndexed(results.songs, key = { _, s -> "s${s.id}" }, contentType = { _, _ -> "song" }) { index, song ->
@@ -188,18 +211,10 @@ private fun HideKeyboardOnScroll(listState: LazyListState, hide: () -> Unit) {
 }
 
 @Composable
-private fun Message(text: String, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
 private fun SectionHeader(title: String) {
     Text(
         title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
     )
 }
@@ -211,10 +226,10 @@ private fun AlbumResultRow(album: Album, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SongArtwork(artworkUri = album.artworkUri, modifier = Modifier.size(48.dp))
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(album.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${album.artist} · ${album.songs.size} canciones",
+                "Álbum · ${album.artist}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -230,19 +245,11 @@ private fun ArtistResultRow(artist: Artist, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    artist.name.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+        ArtistAvatar(artist, 48.dp, 20.sp)
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(artist.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${artist.songs.size} canciones",
+                if (artist.songs.size == 1) "Artista · 1 canción" else "Artista · ${artist.songs.size} canciones",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

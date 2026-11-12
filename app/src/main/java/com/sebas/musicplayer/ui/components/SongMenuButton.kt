@@ -1,6 +1,8 @@
 package com.sebas.musicplayer.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -50,16 +52,25 @@ fun SongMenuButton(
         // no al hacer scroll (antes se componían para todas las filas visibles).
         if (expanded) {
             val viewModel: SongActionsViewModel = viewModel(factory = SongActionsViewModel.Factory)
+            val context = LocalContext.current
             DropdownMenu(expanded = true, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Reproducir siguiente") },
                     leadingIcon = { Icon(Icons.Default.SkipNext, contentDescription = null) },
-                    onClick = { expanded = false; viewModel.playNext(song) },
+                    onClick = {
+                        expanded = false
+                        viewModel.playNext(song)
+                        Toast.makeText(context, "Sonará a continuación", Toast.LENGTH_SHORT).show()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Agregar a la cola") },
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                    onClick = { expanded = false; viewModel.addToQueue(song) },
+                    onClick = {
+                        expanded = false
+                        viewModel.addToQueue(song)
+                        Toast.makeText(context, "Agregada a la cola", Toast.LENGTH_SHORT).show()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Agregar a playlist") },

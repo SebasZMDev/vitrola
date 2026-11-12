@@ -1,27 +1,39 @@
 package com.sebas.musicplayer.ui.home
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.edit
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import com.sebas.musicplayer.ui.browse.AlbumsTab
 import com.sebas.musicplayer.ui.browse.ArtistsTab
 import com.sebas.musicplayer.ui.library.SongsTab
@@ -30,7 +42,7 @@ import kotlinx.coroutines.launch
 
 private val tabs = listOf("Canciones", "Álbumes", "Artistas", "Playlists")
 
-/** Pantalla principal: barra superior con búsqueda + pestañas deslizables. Cada pestaña es de un agente distinto. */
+/** Pantalla principal: título, barra de búsqueda y pestañas deslizables. Cada pestaña es de un agente distinto. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -51,23 +63,37 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mi música") },
-                actions = {
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "Buscar")
-                    }
-                },
-            )
+            Column(Modifier.statusBarsPadding()) {
+                Text(
+                    "Mi música",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
+                )
+                SearchPill(onClick = onOpenSearch)
+            }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+            PrimaryTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = Color.Transparent,
+                divider = {},
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
                 tabs.forEachIndexed { index, title ->
+                    val selected = pagerState.currentPage == index
                     Tab(
-                        selected = pagerState.currentPage == index,
+                        selected = selected,
                         onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                        text = { Text(title, maxLines = 1) },
+                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = {
+                            Text(
+                                title,
+                                maxLines = 1,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            )
+                        },
                     )
                 }
             }
@@ -80,6 +106,36 @@ fun HomeScreen(
                     else -> PlaylistsTab(onPlaylistClick = onPlaylistClick, modifier = pageModifier)
                 }
             }
+        }
+    }
+}
+
+/** Parece un campo de búsqueda, pero es un botón: al tocarlo se abre la pantalla de búsqueda con el teclado. */
+@Composable
+private fun SearchPill(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp)
+            .semantics { role = Role.Button },
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Buscar canciones, álbumes o artistas",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 12.dp),
+            )
         }
     }
 }

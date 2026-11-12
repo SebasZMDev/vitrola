@@ -9,7 +9,13 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -94,30 +100,41 @@ fun PermissionScreen(denied: Boolean, onRequest: () -> Unit, onOpenSettings: () 
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            Icons.Default.LibraryMusic,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        val colors = MaterialTheme.colorScheme
+        Box(
+            Modifier
+                .size(120.dp)
+                .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer)), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.LibraryMusic,
+                contentDescription = null,
+                modifier = Modifier.size(56.dp),
+                tint = colors.onPrimaryContainer,
+            )
+        }
         Text(
-            "Necesitamos acceso a tu música",
+            "Tu música, en un solo lugar",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
         )
         Text(
             if (denied) {
                 "Sin el permiso no podemos mostrar tus canciones. Puedes activarlo desde los ajustes de la app."
             } else {
-                "Para reproducir los archivos de audio de este dispositivo, la app necesita permiso para leerlos."
+                "Para mostrar y reproducir las canciones guardadas en este teléfono, la app necesita permiso para leerlas. Nada sale de tu dispositivo."
             },
             style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        if (denied) {
-            Button(onClick = onOpenSettings) { Text("Abrir ajustes") }
-        } else {
-            Button(onClick = onRequest) { Text("Permitir acceso a la música") }
+        Button(
+            onClick = if (denied) onOpenSettings else onRequest,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(52.dp),
+        ) {
+            Text(if (denied) "Abrir ajustes" else "Permitir acceso a la música")
         }
     }
 }

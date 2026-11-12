@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.MusicPlayer" parent="android:Theme.Material.NoActionBar" />
+    <!-- El fondo de ventana coincide con `background` de ui/theme/Theme.kt para que no haya destello al abrir. -->
+    <style name="Theme.MusicPlayer" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
 </resources>

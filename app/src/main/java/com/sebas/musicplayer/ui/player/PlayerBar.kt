@@ -1,36 +1,49 @@
 package com.sebas.musicplayer.ui.player
 
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerState
 import com.sebas.musicplayer.ui.components.SongArtwork
+import com.sebas.musicplayer.ui.components.rememberArtworkColor
 import com.sebas.musicplayer.ui.theme.MusicPlayerTheme
 
+/**
+ * Mini reproductor flotante. Tocar abre "Reproduciendo ahora"; deslizar a la izquierda o a la
+ * derecha pasa a la canción siguiente o anterior. Se tiñe con el color de la carátula.
+ */
 @Composable
 fun PlayerBar(
     state: PlayerState,
@@ -46,38 +59,70 @@ fun PlayerBar(
     } else {
         0f
     }
-    Surface(modifier = modifier.fillMaxWidth(), tonalElevation = 3.dp) {
-        Column(modifier = Modifier.navigationBarsPadding()) {
-            Row(
-                modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(40.dp), cornerRadius = 6.dp)
-                Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                    Text(
-                        song.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+    val colors = MaterialTheme.colorScheme
+    val tint = rememberArtworkColor(song.artworkUri)
+    val currentOnNext by rememberUpdatedState(onNext)
+    val currentOnPrevious by rememberUpdatedState(onPrevious)
+
+    Box(modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = tint.copy(alpha = 0.22f).compositeOver(colors.surfaceContainerHigh),
+            shadowElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    var dragged = 0f
+                    val threshold = 56.dp.toPx()
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragged = 0f },
+                        onDragEnd = {
+                            if (dragged <= -threshold) currentOnNext()
+                            if (dragged >= threshold) currentOnPrevious()
+                        },
+                        onHorizontalDrag = { _, amount -> dragged += amount },
                     )
-                    Text(
-                        song.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                },
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .clickable(onClickLabel = "Abrir reproductor", onClick = onClick)
+                        .padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(44.dp), cornerRadius = 10.dp)
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(
+                            song.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            song.artist,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(onClick = onPlayPause) {
+                        Icon(
+                            if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
+                            modifier = Modifier.size(30.dp),
+                        )
+                    }
+                    IconButton(onClick = onNext) {
+                        Icon(Icons.Default.SkipNext, contentDescription = "Siguiente", modifier = Modifier.size(28.dp))
+                    }
                 }
-                IconButton(onClick = onPrevious) { Icon(Icons.Default.SkipPrevious, contentDescription = "Anterior") }
-                IconButton(onClick = onPlayPause) {
-                    Icon(
-                        if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
-                    )
+                Box(Modifier.fillMaxWidth().height(2.dp).background(colors.onSurface.copy(alpha = 0.12f))) {
+                    Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(colors.onSurface))
                 }
-                IconButton(onClick = onNext) { Icon(Icons.Default.SkipNext, contentDescription = "Siguiente") }
             }
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
         }
     }
 }

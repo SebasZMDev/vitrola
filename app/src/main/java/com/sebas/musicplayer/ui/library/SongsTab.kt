@@ -1,26 +1,22 @@
 package com.sebas.musicplayer.ui.library
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,12 +25,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sebas.musicplayer.domain.model.Song
+import com.sebas.musicplayer.ui.browse.PlayShuffleButtons
+import com.sebas.musicplayer.ui.components.EmptyState
 import com.sebas.musicplayer.ui.components.SongMenuButton
 import com.sebas.musicplayer.ui.components.SongRow
 
@@ -81,29 +78,48 @@ private fun SongsContent(
                 CircularProgressIndicator()
             }
 
-            LibraryUiState.Empty -> CenteredMessage("No se encontró música en el dispositivo")
-
-            is LibraryUiState.Error -> CenteredMessage(uiState.message) {
-                TextButton(onClick = onRefresh) { Text("Reintentar") }
+            // Con scroll para que el gesto de "tirar para actualizar" también funcione aquí.
+            LibraryUiState.Empty -> LazyColumn(Modifier.fillMaxSize()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Filled.LibraryMusic,
+                        title = "Aún no hay música",
+                        message = "Copia canciones a tu teléfono y desliza hacia abajo para actualizar.",
+                        modifier = Modifier.fillParentMaxSize(),
+                        action = { FilledTonalButton(onClick = onRefresh) { Text("Buscar de nuevo") } },
+                    )
+                }
             }
 
-            is LibraryUiState.Success -> LazyColumn(Modifier.fillMaxSize()) {
+            is LibraryUiState.Error -> LazyColumn(Modifier.fillMaxSize()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Filled.CloudOff,
+                        title = "No se pudo cargar tu música",
+                        message = uiState.message,
+                        modifier = Modifier.fillParentMaxSize(),
+                        action = { FilledTonalButton(onClick = onRefresh) { Text("Reintentar") } },
+                    )
+                }
+            }
+
+            is LibraryUiState.Success -> LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
                 item(key = "header", contentType = "header") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "${uiState.songs.size} canciones",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)) {
+                        PlayShuffleButtons(
+                            onPlay = { onSongClick(0) },
+                            onShuffle = onShuffleClick,
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                        FilledTonalButton(onClick = onShuffleClick) {
-                            Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Text("Aleatorio")
-                        }
+                        Text(
+                            if (uiState.songs.size == 1) "1 canción" else "${uiState.songs.size} canciones",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
                     }
                 }
                 itemsIndexed(uiState.songs, key = { _, song -> song.id }, contentType = { _, _ -> "song" }) { index, song ->
@@ -115,16 +131,6 @@ private fun SongsContent(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CenteredMessage(text: String, action: (@Composable () -> Unit)? = null) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            action?.invoke()
         }
     }
 }

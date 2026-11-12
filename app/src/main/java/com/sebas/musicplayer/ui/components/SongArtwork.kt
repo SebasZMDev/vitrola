@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,15 +53,18 @@ fun SongArtwork(
 
 @Composable
 internal fun ArtworkPlaceholder(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
     Box(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier = modifier.background(
+            Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer)),
+        ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             Icons.Default.MusicNote,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxSize(0.5f),
+            tint = colors.onPrimaryContainer.copy(alpha = 0.85f),
+            modifier = Modifier.fillMaxSize(0.45f),
         )
     }
 }

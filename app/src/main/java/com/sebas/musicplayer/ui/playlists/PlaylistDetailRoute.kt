@@ -1,31 +1,35 @@
 package com.sebas.musicplayer.ui.playlists
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import com.sebas.musicplayer.ui.browse.PlayShuffleButtons
+import com.sebas.musicplayer.ui.components.ArtworkGlow
+import com.sebas.musicplayer.ui.components.EmptyState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -108,10 +112,14 @@ private fun PlaylistDetailContent(
     onRemove: (Int) -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    ArtworkGlow(MaterialTheme.colorScheme.primary, Modifier.fillMaxWidth().height(340.dp))
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text(state.playlist?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
@@ -131,56 +139,64 @@ private fun PlaylistDetailContent(
             )
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            val isEmpty = state.entries.isEmpty()
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(
-                    "${songCountLabel(state.entries.size)} · ${formatDuration(state.totalDurationMs)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onPlay, enabled = !isEmpty) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Text("Reproducir", Modifier.padding(start = 8.dp))
-                    }
-                    OutlinedButton(onClick = onShuffle, enabled = !isEmpty) {
-                        Icon(Icons.Default.Shuffle, contentDescription = null)
-                        Text("Aleatorio", Modifier.padding(start = 8.dp))
-                    }
+        val isEmpty = state.entries.isEmpty()
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item(key = "header", contentType = "header") {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    PlaylistTile(size = 180.dp, cornerRadius = 20.dp)
+                    Text(
+                        state.playlist?.name.orEmpty(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 20.dp),
+                    )
+                    Text(
+                        "${songCountLabel(state.entries.size)} · ${formatDuration(state.totalDurationMs)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    PlayShuffleButtons(
+                        onPlay = onPlay,
+                        onShuffle = onShuffle,
+                        enabled = !isEmpty,
+                        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                    )
                 }
             }
-            if (isEmpty) {
-                if (state.loaded) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Esta playlist está vacía",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            if (isEmpty && state.loaded) {
+                item(key = "empty", contentType = "empty") {
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                        title = "Esta playlist está vacía",
+                        message = "Agrega canciones desde el menú ⋮ de cualquier canción.",
+                        modifier = Modifier.fillParentMaxHeight(0.45f),
+                    )
                 }
-            } else {
-                LazyColumn(Modifier.fillMaxWidth()) {
-                    items(state.entries, key = { it.position }) { entry ->
-                        val song = entry.song
-                        SongRow(
-                            song = song,
-                            isCurrent = song.id == currentSongId,
-                            onClick = { onSongClick(state.entries.indexOf(entry)) },
-                            trailing = {
-                                SongMenuButton(song, extraItems = { dismiss ->
-                                    DropdownMenuItem(
-                                        text = { Text("Quitar de la playlist") },
-                                        onClick = { dismiss(); onRemove(entry.position) },
-                                    )
-                                })
-                            },
-                        )
-                    }
-                }
+            }
+            items(state.entries, key = { it.position }, contentType = { "song" }) { entry ->
+                val song = entry.song
+                SongRow(
+                    song = song,
+                    isCurrent = song.id == currentSongId,
+                    onClick = { onSongClick(state.entries.indexOf(entry)) },
+                    trailing = {
+                        SongMenuButton(song, extraItems = { dismiss ->
+                            DropdownMenuItem(
+                                text = { Text("Quitar de la playlist") },
+                                onClick = { dismiss(); onRemove(entry.position) },
+                            )
+                        })
+                    },
+                )
             }
         }
+    }
     }
 }
 
