@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.domain.model.Song
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withContext
  */
 class MediaStoreSongRepository(
     private val contentResolver: ContentResolver,
+    private val settings: AppSettings,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SongRepository {
 
@@ -35,19 +37,26 @@ class MediaStoreSongRepository(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DISPLAY_NAME,
         )
-        // Solo música, sin sonidos cortos (< 30 s) y sin audios de WhatsApp (notas de voz y audios
-        // recibidos: cualquier ruta que contenga "WhatsApp", incluye WhatsApp Business).
-        // RELATIVE_PATH existe desde Android 10; antes se filtra por la ruta completa (DATA).
+        // Solo música, con la duración mínima, sin WhatsApp y sin las carpetas que el usuario excluyó
+        // (ver LibraryFilter). RELATIVE_PATH existe desde Android 10; antes se filtra por la ruta
+        // completa (DATA).
         val pathColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.RELATIVE_PATH
         } else {
             @Suppress("DEPRECATION")
             MediaStore.Audio.Media.DATA
         }
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND " +
-            "${MediaStore.Audio.Media.DURATION} >= ? AND " +
-            "COALESCE($pathColumn, '') NOT LIKE ? COLLATE NOCASE"
-        val selectionArgs = arrayOf(MIN_DURATION_MS.toString(), "%WhatsApp%")
+        val prefs = settings.current
+        val clause = LibraryFilter.clause(
+            pathColumn = pathColumn,
+            isMusicColumn = MediaStore.Audio.Media.IS_MUSIC,
+            durationColumn = MediaStore.Audio.Media.DURATION,
+            minDurationSec = prefs.minDurationSec,
+            excludeWhatsApp = prefs.excludeWhatsApp,
+            excludedFolders = prefs.excludedFolders,
+        )
+        val selection = clause.selection
+        val selectionArgs = clause.args.toTypedArray()
         val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
         val songs = mutableListOf<Song>()
@@ -88,7 +97,6 @@ class MediaStoreSongRepository(
     }
 
     private companion object {
-        const val MIN_DURATION_MS = 30_000L
         const val UNKNOWN_ARTIST = "<unknown>"
         val ALBUM_ART_URI: Uri = Uri.parse("content://media/external/audio/albumart")
     }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sebas.musicplayer.domain.model.Song
+
+/**
+ * Se ejecuta después de tocar cualquier fila de canción (ya iniciada la reproducción). La app lo usa
+ * para abrir la pantalla del reproductor si el usuario lo activó en Configuración.
+ */
+val LocalOnSongTap = compositionLocalOf<() -> Unit> { {} }
 
 /**
  * Fila estándar de una canción. Úsala en todas las listas de canciones para que se vean igual.
@@ -40,10 +47,14 @@ fun SongRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val titleColor = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val onSongTap = LocalOnSongTap.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable {
+                onClick()
+                onSongTap()
+            }
             .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

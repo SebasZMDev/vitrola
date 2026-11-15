@@ -20,12 +20,17 @@ import kotlinx.coroutines.sync.withLock
 class CachingSongRepository(
     private val delegate: SongRepository,
     contentResolver: ContentResolver,
+    /** Versión de los ajustes que afectan a la biblioteca; si cambia, la caché deja de valer. */
+    private val settingsVersion: () -> Int = { 0 },
 ) : SongRepository {
 
     private val mutex = Mutex()
 
     @Volatile
     private var cache: List<Song>? = null
+
+    @Volatile
+    private var cachedVersion = settingsVersion()
 
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) = invalidate()
@@ -50,14 +55,21 @@ class CachingSongRepository(
     }
 
     override suspend fun getSongs(forceRefresh: Boolean): List<Song> {
-        if (!forceRefresh) cache?.let { return it }
+        if (!forceRefresh) validCache()?.let { return it }
         return mutex.withLock {
-            if (!forceRefresh) cache?.let { return it }
+            if (!forceRefresh) validCache()?.let { return it }
             val startedAt = generation.get()
+            val version = settingsVersion()
             delegate.getSongs(forceRefresh).also { songs ->
                 // Si MediaStore cambió durante la consulta, devuelve el resultado pero no lo cachea.
-                if (generation.get() == startedAt) cache = songs
+                if (generation.get() == startedAt) {
+                    cache = songs
+                    cachedVersion = version
+                }
             }
         }
     }
+
+    /** La caché solo vale si se armó con los ajustes actuales. */
+    private fun validCache(): List<Song>? = cache?.takeIf { cachedVersion == settingsVersion() }
 }

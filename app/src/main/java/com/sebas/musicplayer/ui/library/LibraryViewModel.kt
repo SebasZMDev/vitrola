@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.library.SongRepository
+import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
@@ -14,6 +15,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 sealed interface LibraryUiState {
@@ -26,6 +30,7 @@ sealed interface LibraryUiState {
 class LibraryViewModel(
     private val songRepository: SongRepository,
     private val playerController: PlayerController,
+    settings: AppSettings,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -38,6 +43,16 @@ class LibraryViewModel(
 
     private var loaded = false
     private var loading = false
+    private var reloadPending = false
+
+    init {
+        // Si cambian carpetas excluidas, WhatsApp o la duración mínima, se vuelve a cargar la lista.
+        viewModelScope.launch {
+            settings.state.map { it.libraryVersion }.distinctUntilChanged().drop(1).collect {
+                if (loaded || loading) load()
+            }
+        }
+    }
 
     fun loadSongs() {
         if (!loaded) load()
@@ -46,7 +61,11 @@ class LibraryViewModel(
     fun refresh() = load(forceRefresh = true)
 
     private fun load(forceRefresh: Boolean = false) {
-        if (loading) return
+        if (loading) {
+            // Una carga en curso empezó con los ajustes anteriores: se repite al terminar.
+            reloadPending = true
+            return
+        }
         loading = true
         if (_uiState.value is LibraryUiState.Success) {
             _isRefreshing.value = true
@@ -65,6 +84,10 @@ class LibraryViewModel(
             } finally {
                 loading = false
                 _isRefreshing.value = false
+                if (reloadPending) {
+                    reloadPending = false
+                    load()
+                }
             }
         }
     }
@@ -83,7 +106,7 @@ class LibraryViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                LibraryViewModel(app.container.songRepository, app.container.playerController)
+                LibraryViewModel(app.container.songRepository, app.container.playerController, app.container.settings)
             }
         }
     }

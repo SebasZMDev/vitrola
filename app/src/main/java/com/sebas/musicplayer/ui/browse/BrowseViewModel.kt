@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.library.SongRepository
+import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.domain.library.Album
 import com.sebas.musicplayer.domain.library.Artist
 import com.sebas.musicplayer.domain.library.groupAlbums
@@ -16,8 +17,12 @@ import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -30,6 +35,7 @@ sealed interface BrowseState {
 class BrowseViewModel(
     private val repository: SongRepository,
     private val playerController: PlayerController,
+    settings: AppSettings,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BrowseState>(BrowseState.Loading)
@@ -37,13 +43,20 @@ class BrowseViewModel(
 
     val playerState: StateFlow<PlayerState> = playerController.state
 
+    private var loadJob: Job? = null
+
     init {
         load()
+        // Si cambian carpetas excluidas, WhatsApp o la duración mínima, se agrupa de nuevo.
+        viewModelScope.launch {
+            settings.state.map { it.libraryVersion }.distinctUntilChanged().drop(1).collect { load() }
+        }
     }
 
     fun load() {
         _state.value = BrowseState.Loading
-        viewModelScope.launch {
+        loadJob?.cancel() // una carga anterior pudo empezar con otros ajustes
+        loadJob = viewModelScope.launch {
             _state.value = try {
                 val songs = repository.getSongs()
                 withContext(Dispatchers.Default) {
@@ -65,7 +78,7 @@ class BrowseViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                BrowseViewModel(app.container.songRepository, app.container.playerController)
+                BrowseViewModel(app.container.songRepository, app.container.playerController, app.container.settings)
             }
         }
     }

@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -51,6 +54,7 @@ private const val TAB_KEY = "home_tab_name"
 @Composable
 fun HomeScreen(
     onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (String) -> Unit,
     onPlaylistClick: (Long) -> Unit,
@@ -71,13 +75,19 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            Column(Modifier.statusBarsPadding()) {
-                Text(
-                    "Mi música",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
-                )
-                SearchPill(onClick = onOpenSearch)
+            // Búsqueda compacta + engranaje de configuración, sin título.
+            Row(
+                modifier = Modifier.statusBarsPadding().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SearchPill(onClick = onOpenSearch, modifier = Modifier.weight(1f))
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = "Configuración",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
     ) { padding ->
@@ -120,29 +130,28 @@ fun HomeScreen(
 
 /** Parece un campo de búsqueda, pero es un botón: al tocarlo se abre la pantalla de búsqueda con el teclado. */
 @Composable
-private fun SearchPill(onClick: () -> Unit) {
+private fun SearchPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp)
+        modifier = modifier
+            .height(40.dp)
             .semantics { role = Role.Button },
     ) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.Default.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
             )
             Text(
-                "Buscar canciones, álbumes o artistas",
-                style = MaterialTheme.typography.bodyLarge,
+                "Buscar en tu música",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 12.dp),
+                modifier = Modifier.padding(start = 10.dp),
             )
         }
     }
