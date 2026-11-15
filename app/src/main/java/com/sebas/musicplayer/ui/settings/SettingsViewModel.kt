@@ -9,6 +9,7 @@ import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.library.FolderRepository
 import com.sebas.musicplayer.data.library.MusicFolder
 import com.sebas.musicplayer.data.settings.AppSettings
+import com.sebas.musicplayer.data.settings.PlayerStyle
 import com.sebas.musicplayer.data.settings.SettingsState
 import com.sebas.musicplayer.data.settings.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,7 @@ class SettingsViewModel(
     fun setMinDurationSec(value: Int) = settings.setMinDurationSec(value)
     fun setThemeMode(value: ThemeMode) = settings.setThemeMode(value)
     fun setOpenPlayerOnTap(value: Boolean) = settings.setOpenPlayerOnTap(value)
+    fun setPlayerStyle(value: PlayerStyle) = settings.setPlayerStyle(value)
 
     companion object {
         val Factory = viewModelFactory {

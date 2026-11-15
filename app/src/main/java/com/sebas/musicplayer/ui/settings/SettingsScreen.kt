@@ -1,7 +1,16 @@
 package com.sebas.musicplayer.ui.settings
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.sebas.musicplayer.data.settings.PlayerStyle
+import com.sebas.musicplayer.ui.components.SongArtwork
+import com.sebas.musicplayer.ui.nowplaying.DiscView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,6 +65,7 @@ fun SettingsRoute(onBack: () -> Unit) {
         onBack = onBack,
         onThemeMode = viewModel::setThemeMode,
         onOpenPlayerOnTap = viewModel::setOpenPlayerOnTap,
+        onPlayerStyle = viewModel::setPlayerStyle,
         onExcludeWhatsApp = viewModel::setExcludeWhatsApp,
         onMinDuration = viewModel::setMinDurationSec,
         onFolderExcluded = viewModel::setFolderExcluded,
@@ -71,6 +81,7 @@ internal fun SettingsScreen(
     onBack: () -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onOpenPlayerOnTap: (Boolean) -> Unit,
+    onPlayerStyle: (PlayerStyle) -> Unit,
     onExcludeWhatsApp: (Boolean) -> Unit,
     onMinDuration: (Int) -> Unit,
     onFolderExcluded: (String, Boolean) -> Unit,
@@ -116,6 +127,24 @@ internal fun SettingsScreen(
             }
 
             item { SectionTitle("Reproducción") }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    Text("Estilo del reproductor", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Cómo se ve la carátula mientras suena la música.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()).padding(top = 12.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        PlayerStyle.entries.forEach { style ->
+                            PlayerStyleCard(style, selected = state.playerStyle == style, onClick = { onPlayerStyle(style) })
+                        }
+                    }
+                }
+            }
             item {
                 SwitchRow(
                     title = "Abrir el reproductor al tocar una canción",
@@ -210,6 +239,39 @@ private fun FolderRow(folder: MusicFolder, state: SettingsState, onFolderExclude
         enabled = !byParent,
         onChange = { included -> onFolderExcluded(folder.path, !included) },
     )
+}
+
+/** Vista previa de un estilo de reproductor; el elegido lleva un borde del color de acento. */
+@Composable
+private fun PlayerStyleCard(style: PlayerStyle, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    Column(
+        modifier = Modifier
+            .width(108.dp)
+            .clip(shape)
+            .border(2.dp, borderColor, shape)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (style == PlayerStyle.COVER) {
+            SongArtwork(artworkUri = null, modifier = Modifier.size(84.dp), cornerRadius = 12.dp)
+        } else {
+            DiscView(style = style, artworkUri = null, rotation = { 0f }, modifier = Modifier.size(84.dp))
+        }
+        Text(
+            when (style) {
+                PlayerStyle.COVER -> "Carátula"
+                PlayerStyle.VINYL -> "Vinilo clásico"
+                PlayerStyle.CD -> "CD"
+            },
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
 }
 
 @Composable

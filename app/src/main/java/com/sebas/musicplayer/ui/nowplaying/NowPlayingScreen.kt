@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sebas.musicplayer.data.settings.PlayerStyle
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerState
 import com.sebas.musicplayer.playback.RepeatMode
@@ -84,8 +85,10 @@ fun NowPlayingRoute(
     viewModel: NowPlayingViewModel = viewModel(factory = NowPlayingViewModel.Factory),
 ) {
     val state by viewModel.playerState.collectAsStateWithLifecycle()
+    val playerStyle by viewModel.playerStyle.collectAsStateWithLifecycle()
     NowPlayingScreen(
         state = state,
+        playerStyle = playerStyle,
         onBack = onBack,
         onTogglePlayPause = viewModel::togglePlayPause,
         onNext = viewModel::next,
@@ -117,6 +120,7 @@ fun NowPlayingScreen(
     onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     onOpenEqualizer: () -> Unit = {},
+    playerStyle: PlayerStyle = PlayerStyle.COVER,
 ) {
     var showQueue by remember { mutableStateOf(false) }
     if (showQueue) {
@@ -165,6 +169,7 @@ fun NowPlayingScreen(
             } else {
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 28.dp)) {
                     Artwork(
+                        style = playerStyle,
                         artworkUri = song.artworkUri,
                         isPlaying = state.isPlaying,
                         onNext = onNext,
@@ -251,6 +256,7 @@ private fun Header(album: String?, onBack: () -> Unit) {
 
 @Composable
 private fun Artwork(
+    style: PlayerStyle,
     artworkUri: Uri?,
     isPlaying: Boolean,
     onNext: () -> Unit,
@@ -269,29 +275,41 @@ private fun Artwork(
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         // Cuadrada y lo más grande posible; en pantallas bajas se encoge para no empujar los controles.
         val side = min(maxWidth, maxHeight)
-        SongArtwork(
-            artworkUri = artworkUri,
-            modifier = Modifier
-                .size(side)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .shadow(elevation = 24.dp, shape = RoundedCornerShape(20.dp))
-                .pointerInput(Unit) {
-                    var dragged = 0f
-                    val threshold = 64.dp.toPx()
-                    detectHorizontalDragGestures(
-                        onDragStart = { dragged = 0f },
-                        onDragEnd = {
-                            if (dragged <= -threshold) currentOnNext()
-                            if (dragged >= threshold) currentOnPrevious()
-                        },
-                        onHorizontalDrag = { _, amount -> dragged += amount },
-                    )
+        // Deslizar a los lados cambia de canción, sea cual sea el estilo.
+        val swipe = Modifier.pointerInput(Unit) {
+            var dragged = 0f
+            val threshold = 64.dp.toPx()
+            detectHorizontalDragGestures(
+                onDragStart = { dragged = 0f },
+                onDragEnd = {
+                    if (dragged <= -threshold) currentOnNext()
+                    if (dragged >= threshold) currentOnPrevious()
                 },
-            cornerRadius = 20.dp,
-        )
+                onHorizontalDrag = { _, amount -> dragged += amount },
+            )
+        }
+        if (style == PlayerStyle.COVER) {
+            SongArtwork(
+                artworkUri = artworkUri,
+                modifier = Modifier
+                    .size(side)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .shadow(elevation = 24.dp, shape = RoundedCornerShape(20.dp))
+                    .then(swipe),
+                cornerRadius = 20.dp,
+            )
+        } else {
+            // Disco: en pausa se frena con inercia (no hace falta encogerlo).
+            SpinningDisc(
+                style = style,
+                artworkUri = artworkUri,
+                isPlaying = isPlaying,
+                modifier = Modifier.size(side).then(swipe),
+            )
+        }
     }
 }
 

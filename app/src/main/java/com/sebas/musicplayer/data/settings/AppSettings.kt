@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Cómo se ve la carátula en la pantalla de reproducción. */
+enum class PlayerStyle { COVER, VINYL, CD }
+
 /**
  * Ajustes del usuario. [libraryVersion] sube cada vez que cambia algo que altera qué canciones
  * se ven (carpetas, WhatsApp, duración mínima); no se guarda en disco.
@@ -17,6 +20,7 @@ data class SettingsState(
     val minDurationSec: Int = DEFAULT_MIN_DURATION_SEC,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val openPlayerOnTap: Boolean = false,
+    val playerStyle: PlayerStyle = PlayerStyle.COVER,
     val libraryVersion: Int = 0,
 ) {
     /** Una carpeta queda excluida si ella o alguna carpeta superior está en la lista. */
@@ -48,6 +52,8 @@ class AppSettings(context: Context) {
 
     fun setOpenPlayerOnTap(value: Boolean) = update(libraryChanged = false) { it.copy(openPlayerOnTap = value) }
 
+    fun setPlayerStyle(value: PlayerStyle) = update(libraryChanged = false) { it.copy(playerStyle = value) }
+
     private fun update(libraryChanged: Boolean, transform: (SettingsState) -> SettingsState) {
         synchronized(this) {
             val old = _state.value
@@ -67,6 +73,9 @@ class AppSettings(context: Context) {
             ?.let { name -> ThemeMode.entries.firstOrNull { it.name == name } }
             ?: ThemeMode.SYSTEM,
         openPlayerOnTap = prefs.getBoolean(KEY_OPEN_ON_TAP, false),
+        playerStyle = prefs.getString(KEY_PLAYER_STYLE, null)
+            ?.let { name -> PlayerStyle.entries.firstOrNull { it.name == name } }
+            ?: PlayerStyle.COVER,
     )
 
     private fun write(state: SettingsState) {
@@ -76,6 +85,7 @@ class AppSettings(context: Context) {
             .putInt(KEY_MIN_DURATION, state.minDurationSec)
             .putString(KEY_THEME, state.themeMode.name)
             .putBoolean(KEY_OPEN_ON_TAP, state.openPlayerOnTap)
+            .putString(KEY_PLAYER_STYLE, state.playerStyle.name)
             .apply()
     }
 
@@ -85,5 +95,6 @@ class AppSettings(context: Context) {
         const val KEY_MIN_DURATION = "min_duration_sec"
         const val KEY_THEME = "theme_mode"
         const val KEY_OPEN_ON_TAP = "open_player_on_tap"
+        const val KEY_PLAYER_STYLE = "player_style"
     }
 }
