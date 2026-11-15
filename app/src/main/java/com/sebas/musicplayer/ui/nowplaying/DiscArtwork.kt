@@ -22,15 +22,21 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.lerp
+import com.sebas.musicplayer.data.settings.PlayerLook
 import com.sebas.musicplayer.data.settings.PlayerStyle
+import com.sebas.musicplayer.data.settings.VinylColor
 import com.sebas.musicplayer.ui.components.SongArtwork
+import com.sebas.musicplayer.ui.components.rememberArtworkColor
 import kotlin.math.exp
 
-/** 33 rpm = 198 grados por segundo. */
+/** 33 rpm = 198 grados por segundo; 45 rpm = 270. */
 private const val SPIN_DEGREES_PER_SECOND = 198f
+private const val SPIN_DEGREES_PER_SECOND_45 = 270f
 
 /** Constante de tiempo de arranque y frenado: el disco tiene inercia en vez de parar en seco. */
 private const val SPIN_INERTIA_PER_SECOND = 3.5f
@@ -45,12 +51,24 @@ fun SpinningDisc(
     artworkUri: Uri?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    look: PlayerLook = PlayerLook(),
 ) {
-    var angle by remember { mutableFloatStateOf(0f) }
+    val angle = rememberSpinAngle(isPlaying, if (look.fast45) SPIN_DEGREES_PER_SECOND_45 else SPIN_DEGREES_PER_SECOND)
+    DiscView(style = style, artworkUri = artworkUri, rotation = { angle.value }, look = look, modifier = modifier)
+}
+
+/**
+ * Ángulo (grados) de algo que gira a [degreesPerSecond] mientras [isPlaying] y frena con inercia al pausar.
+ * Léelo solo al dibujar (`angle.value` dentro de graphicsLayer/Canvas): así girar no recompone nada.
+ */
+@Composable
+fun rememberSpinAngle(isPlaying: Boolean, degreesPerSecond: Float = SPIN_DEGREES_PER_SECOND): androidx.compose.runtime.State<Float> {
+    val state = remember { mutableFloatStateOf(0f) }
+    var angle by state
     var speed by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(isPlaying) {
-        val target = if (isPlaying) SPIN_DEGREES_PER_SECOND else 0f
+    LaunchedEffect(isPlaying, degreesPerSecond) {
+        val target = if (isPlaying) degreesPerSecond else 0f
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
@@ -64,8 +82,7 @@ fun SpinningDisc(
             }
         }
     }
-
-    DiscView(style = style, artworkUri = artworkUri, rotation = { angle }, modifier = modifier)
+    return state
 }
 
 /**
@@ -78,8 +95,16 @@ fun DiscView(
     artworkUri: Uri?,
     rotation: () -> Float,
     modifier: Modifier = Modifier,
+    look: PlayerLook = PlayerLook(),
 ) {
     val holeColor = MaterialTheme.colorScheme.background
+    val artColor = if (look.vinylColor == VinylColor.COVER && style != PlayerStyle.CD) rememberArtworkColor(artworkUri) else Color.Gray
+    val (vinylInner, vinylOuter) = when (look.vinylColor) {
+        VinylColor.BLACK -> Color(0xFF2B2B30) to Color(0xFF0D0D0F)
+        VinylColor.RED -> Color(0xFF9A1E26) to Color(0xFF4A0B10)
+        VinylColor.BLUE -> Color(0xFF2456A8) to Color(0xFF0B2250)
+        VinylColor.COVER -> lerp(artColor, Color.Black, 0.35f) to lerp(artColor, Color.Black, 0.75f)
+    }
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
         // La sombra crece con el tamaño: grande en el reproductor, discreta en las miniaturas.
@@ -94,30 +119,35 @@ fun DiscView(
                     // CD: la carátula ocupa todo el disco.
                     SongArtwork(artworkUri, Modifier.fillMaxSize().clip(CircleShape), cornerRadius = 500.dp)
                 } else {
-                    Canvas(Modifier.fillMaxSize()) { drawVinylSurface() }
-                    SongArtwork(artworkUri, Modifier.size(side * 0.36f), cornerRadius = 500.dp)
+                    Canvas(Modifier.fillMaxSize()) { drawVinylSurface(vinylInner, vinylOuter, look.grooves, look.labelSize.fraction) }
+                    SongArtwork(artworkUri, Modifier.size(side * look.labelSize.fraction), cornerRadius = 500.dp)
                 }
             }
             // Parte fija: reflejos, aro central y agujero.
             Canvas(Modifier.fillMaxSize()) {
-                if (style == PlayerStyle.CD) drawCdOverlay(holeColor) else drawVinylOverlay(holeColor)
+                if (style == PlayerStyle.CD) drawCdOverlay(holeColor) else drawVinylOverlay(holeColor, look.sheen, look.labelSize.fraction)
             }
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVinylSurface() {
+private fun DrawScope.drawVinylSurface(
+    inner: Color,
+    outer: Color,
+    grooves: Boolean,
+    labelFraction: Float,
+) {
     val c = center
     val r = size.minDimension / 2f
     drawCircle(
-        brush = Brush.radialGradient(listOf(Color(0xFF2B2B30), Color(0xFF0D0D0F)), center = c, radius = r),
+        brush = Brush.radialGradient(listOf(inner, outer), center = c, radius = r),
         radius = r,
         center = c,
     )
     // Surcos: anillos finos, y cada tanto uno más marcado (separación entre pistas).
-    var ring = r * 0.40f
+    var ring = r * (labelFraction + 0.04f)
     var i = 0
-    while (ring < r * 0.97f) {
+    while (grooves && ring < r * 0.97f) {
         val track = i % 8 == 0
         drawCircle(
             color = Color.White.copy(alpha = if (track) 0.11f else 0.035f),
@@ -131,17 +161,17 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVinylSurface() 
     drawCircle(Color.White.copy(alpha = 0.10f), radius = r * 0.985f, center = c, style = Stroke(1.dp.toPx()))
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawVinylOverlay(holeColor: Color) {
+private fun DrawScope.drawVinylOverlay(holeColor: Color, sheen: Boolean, labelFraction: Float) {
     val c = center
     val r = size.minDimension / 2f
-    drawCircle(brush = sheen(c, alpha = 0.15f), radius = r * 0.99f, center = c)
+    if (sheen) drawCircle(brush = sheen(c, alpha = 0.15f), radius = r * 0.99f, center = c)
     // Aro alrededor de la etiqueta y agujero del eje.
-    drawCircle(Color.Black.copy(alpha = 0.55f), radius = r * 0.36f, center = c, style = Stroke(2.dp.toPx()))
+    drawCircle(Color.Black.copy(alpha = 0.55f), radius = r * labelFraction, center = c, style = Stroke(2.dp.toPx()))
     drawCircle(holeColor, radius = r * 0.03f, center = c)
     drawCircle(Color.Black.copy(alpha = 0.5f), radius = r * 0.03f, center = c, style = Stroke(1.dp.toPx()))
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCdOverlay(holeColor: Color) {
+private fun DrawScope.drawCdOverlay(holeColor: Color) {
     val c = center
     val r = size.minDimension / 2f
     // Arcoíris del reflejo de un CD.

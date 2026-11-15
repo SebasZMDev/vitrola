@@ -8,7 +8,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.sebas.musicplayer.data.settings.LabelSize
+import com.sebas.musicplayer.data.settings.PlayerBackground
+import com.sebas.musicplayer.data.settings.PlayerLook
 import com.sebas.musicplayer.data.settings.PlayerStyle
+import com.sebas.musicplayer.data.settings.VinylColor
+import com.sebas.musicplayer.ui.nowplaying.PlayerScene
+import com.sebas.musicplayer.ui.nowplaying.isScene
 import com.sebas.musicplayer.ui.components.SongArtwork
 import com.sebas.musicplayer.ui.nowplaying.DiscView
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +72,8 @@ fun SettingsRoute(onBack: () -> Unit) {
         onThemeMode = viewModel::setThemeMode,
         onOpenPlayerOnTap = viewModel::setOpenPlayerOnTap,
         onPlayerStyle = viewModel::setPlayerStyle,
+        onPlayerBackground = viewModel::setPlayerBackground,
+        onLook = viewModel::updateLook,
         onExcludeWhatsApp = viewModel::setExcludeWhatsApp,
         onMinDuration = viewModel::setMinDurationSec,
         onFolderExcluded = viewModel::setFolderExcluded,
@@ -82,6 +90,8 @@ internal fun SettingsScreen(
     onThemeMode: (ThemeMode) -> Unit,
     onOpenPlayerOnTap: (Boolean) -> Unit,
     onPlayerStyle: (PlayerStyle) -> Unit,
+    onPlayerBackground: (PlayerBackground) -> Unit,
+    onLook: ((PlayerLook) -> PlayerLook) -> Unit,
     onExcludeWhatsApp: (Boolean) -> Unit,
     onMinDuration: (Int) -> Unit,
     onFolderExcluded: (String, Boolean) -> Unit,
@@ -141,6 +151,36 @@ internal fun SettingsScreen(
                     ) {
                         PlayerStyle.entries.forEach { style ->
                             PlayerStyleCard(style, selected = state.playerStyle == style, onClick = { onPlayerStyle(style) })
+                        }
+                    }
+                }
+            }
+            if (state.playerStyle == PlayerStyle.VINYL || state.playerStyle == PlayerStyle.TURNTABLE) {
+                item { VinylOptions(state.playerStyle, state.look, onLook) }
+            }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text("Fondo del reproductor", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "El negro puro solo se aplica con el tema oscuro (ahorra batería en pantallas OLED).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ChipRow {
+                        PlayerBackground.entries.forEach { bg ->
+                            FilterChip(
+                                selected = state.playerBackground == bg,
+                                onClick = { onPlayerBackground(bg) },
+                                label = {
+                                    Text(
+                                        when (bg) {
+                                            PlayerBackground.GLOW -> "Color de la carátula"
+                                            PlayerBackground.BLUR -> "Carátula borrosa"
+                                            PlayerBackground.OLED -> "Negro puro"
+                                        },
+                                    )
+                                },
+                            )
                         }
                     }
                 }
@@ -255,22 +295,78 @@ private fun PlayerStyleCard(style: PlayerStyle, selected: Boolean, onClick: () -
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (style == PlayerStyle.COVER) {
-            SongArtwork(artworkUri = null, modifier = Modifier.size(84.dp), cornerRadius = 12.dp)
-        } else {
-            DiscView(style = style, artworkUri = null, rotation = { 0f }, modifier = Modifier.size(84.dp))
+        when {
+            style == PlayerStyle.COVER -> SongArtwork(artworkUri = null, modifier = Modifier.size(84.dp), cornerRadius = 12.dp)
+            style.isScene() -> PlayerScene(
+                style = style,
+                artworkUri = null,
+                isPlaying = false,
+                progress = 0.35f,
+                look = PlayerLook(),
+                modifier = Modifier.size(width = 92.dp, height = 84.dp),
+            )
+            else -> DiscView(style = style, artworkUri = null, rotation = { 0f }, modifier = Modifier.size(84.dp))
         }
         Text(
             when (style) {
                 PlayerStyle.COVER -> "Carátula"
                 PlayerStyle.VINYL -> "Vinilo clásico"
                 PlayerStyle.CD -> "CD"
+                PlayerStyle.TURNTABLE -> "Tocadiscos"
+                PlayerStyle.CASSETTE -> "Cassette"
+                PlayerStyle.RADIO -> "Radio"
             },
             style = MaterialTheme.typography.labelLarge,
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             modifier = Modifier.padding(top = 8.dp),
         )
+    }
+}
+
+/** Opciones del vinilo: aparecen solo con el estilo que las usa. */
+@Composable
+private fun VinylOptions(style: PlayerStyle, look: PlayerLook, onLook: ((PlayerLook) -> PlayerLook) -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text("Color del vinilo", style = MaterialTheme.typography.bodyLarge)
+        ChipRow {
+            VinylColor.entries.forEach { c ->
+                FilterChip(
+                    selected = look.vinylColor == c,
+                    onClick = { onLook { it.copy(vinylColor = c) } },
+                    label = {
+                        Text(
+                            when (c) {
+                                VinylColor.BLACK -> "Negro"
+                                VinylColor.RED -> "Rojo"
+                                VinylColor.BLUE -> "Azul"
+                                VinylColor.COVER -> "De la carátula"
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        Text("Etiqueta", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 12.dp))
+        ChipRow {
+            LabelSize.entries.forEach { size ->
+                FilterChip(
+                    selected = look.labelSize == size,
+                    onClick = { onLook { it.copy(labelSize = size) } },
+                    label = { Text(when (size) { LabelSize.SMALL -> "Pequeña"; LabelSize.MEDIUM -> "Media"; LabelSize.LARGE -> "Grande" }) },
+                )
+            }
+        }
+        Text("Velocidad", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 12.dp))
+        ChipRow {
+            FilterChip(selected = !look.fast45, onClick = { onLook { it.copy(fast45 = false) } }, label = { Text("33 rpm") })
+            FilterChip(selected = look.fast45, onClick = { onLook { it.copy(fast45 = true) } }, label = { Text("45 rpm") })
+        }
+    }
+    SwitchRow("Surcos", "Los anillos finos del disco.", look.grooves, { v -> onLook { it.copy(grooves = v) } })
+    SwitchRow("Reflejo de luz", "El brillo fijo que hace notar el giro.", look.sheen, { v -> onLook { it.copy(sheen = v) } })
+    if (style == PlayerStyle.VINYL) {
+        SwitchRow("Funda con la carátula", "El disco asoma por un lado de su funda.", look.sleeve, { v -> onLook { it.copy(sleeve = v) } })
     }
 }
 

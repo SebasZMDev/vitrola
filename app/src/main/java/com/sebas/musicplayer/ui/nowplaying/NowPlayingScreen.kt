@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sebas.musicplayer.data.settings.PlayerAppearance
+import com.sebas.musicplayer.data.settings.PlayerBackground
 import com.sebas.musicplayer.data.settings.PlayerStyle
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerState
@@ -85,10 +88,10 @@ fun NowPlayingRoute(
     viewModel: NowPlayingViewModel = viewModel(factory = NowPlayingViewModel.Factory),
 ) {
     val state by viewModel.playerState.collectAsStateWithLifecycle()
-    val playerStyle by viewModel.playerStyle.collectAsStateWithLifecycle()
+    val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     NowPlayingScreen(
         state = state,
-        playerStyle = playerStyle,
+        appearance = appearance,
         onBack = onBack,
         onTogglePlayPause = viewModel::togglePlayPause,
         onNext = viewModel::next,
@@ -120,7 +123,7 @@ fun NowPlayingScreen(
     onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     onOpenEqualizer: () -> Unit = {},
-    playerStyle: PlayerStyle = PlayerStyle.COVER,
+    appearance: PlayerAppearance = PlayerAppearance(),
 ) {
     var showQueue by remember { mutableStateOf(false) }
     if (showQueue) {
@@ -140,10 +143,11 @@ fun NowPlayingScreen(
     val currentOnBack by rememberUpdatedState(onBack)
 
     Box(modifier.fillMaxSize().background(colors.background)) {
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to glow.copy(alpha = glowAlpha), 0.8f to Color.Transparent),
-            ),
+        PlayerBackdrop(
+            background = appearance.background,
+            artworkUri = song?.artworkUri,
+            glow = glow,
+            glowAlpha = glowAlpha,
         )
         Column(
             modifier = Modifier
@@ -169,9 +173,10 @@ fun NowPlayingScreen(
             } else {
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 28.dp)) {
                     Artwork(
-                        style = playerStyle,
+                        appearance = appearance,
                         artworkUri = song.artworkUri,
                         isPlaying = state.isPlaying,
+                        progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
                         onNext = onNext,
                         onPrevious = onPrevious,
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
@@ -224,6 +229,31 @@ fun NowPlayingScreen(
     }
 }
 
+/** Fondo de la pantalla: resplandor del color de la carátula, carátula borrosa o negro puro (OLED). */
+@Composable
+private fun PlayerBackdrop(
+    background: PlayerBackground,
+    artworkUri: Uri?,
+    glow: Color,
+    glowAlpha: Float,
+) {
+    val colors = MaterialTheme.colorScheme
+    val dark = colors.background.luminance() < 0.5f
+    when {
+        background == PlayerBackground.OLED && dark -> Box(Modifier.fillMaxSize().background(Color.Black))
+        // Desenfoque real solo desde Android 12; antes se usa el resplandor.
+        background == PlayerBackground.BLUR && android.os.Build.VERSION.SDK_INT >= 31 -> {
+            SongArtwork(artworkUri, Modifier.fillMaxSize().blur(48.dp), cornerRadius = 0.dp)
+            Box(Modifier.fillMaxSize().background(colors.background.copy(alpha = if (dark) 0.62f else 0.70f)))
+        }
+        else -> Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to glow.copy(alpha = glowAlpha), 0.8f to Color.Transparent),
+            ),
+        )
+    }
+}
+
 @Composable
 private fun Header(album: String?, onBack: () -> Unit) {
     Row(
@@ -256,9 +286,10 @@ private fun Header(album: String?, onBack: () -> Unit) {
 
 @Composable
 private fun Artwork(
-    style: PlayerStyle,
+    appearance: PlayerAppearance,
     artworkUri: Uri?,
     isPlaying: Boolean,
+    progress: Float,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     modifier: Modifier = Modifier,
@@ -288,6 +319,7 @@ private fun Artwork(
                 onHorizontalDrag = { _, amount -> dragged += amount },
             )
         }
+        val style = appearance.style
         if (style == PlayerStyle.COVER) {
             SongArtwork(
                 artworkUri = artworkUri,
@@ -301,12 +333,25 @@ private fun Artwork(
                     .then(swipe),
                 cornerRadius = 20.dp,
             )
+        } else if (style.isScene()) {
+            // Objetos rectangulares (tocadiscos, cassette, radio): usan todo el espacio, no solo un cuadrado.
+            PlayerScene(
+                style = style,
+                artworkUri = artworkUri,
+                isPlaying = isPlaying,
+                progress = progress,
+                look = appearance.look,
+                modifier = Modifier.fillMaxSize().then(swipe),
+            )
+        } else if (style == PlayerStyle.VINYL && appearance.look.sleeve) {
+            SleeveVinyl(artworkUri, isPlaying, appearance.look, Modifier.fillMaxSize().then(swipe))
         } else {
             // Disco: en pausa se frena con inercia (no hace falta encogerlo).
             SpinningDisc(
                 style = style,
                 artworkUri = artworkUri,
                 isPlaying = isPlaying,
+                look = appearance.look,
                 modifier = Modifier.size(side).then(swipe),
             )
         }

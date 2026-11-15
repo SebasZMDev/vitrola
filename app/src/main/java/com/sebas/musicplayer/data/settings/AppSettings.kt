@@ -8,7 +8,32 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /** Cómo se ve la carátula en la pantalla de reproducción. */
-enum class PlayerStyle { COVER, VINYL, CD }
+enum class PlayerStyle { COVER, VINYL, CD, TURNTABLE, CASSETTE, RADIO }
+
+/** Fondo de la pantalla de reproducción. OLED es negro puro y solo se aplica con el tema oscuro. */
+enum class PlayerBackground { GLOW, BLUR, OLED }
+
+enum class VinylColor { BLACK, RED, BLUE, COVER }
+
+enum class LabelSize(val fraction: Float) { SMALL(0.28f), MEDIUM(0.36f), LARGE(0.46f) }
+
+/** Opciones del vinilo (también el del tocadiscos). */
+data class PlayerLook(
+    val vinylColor: VinylColor = VinylColor.BLACK,
+    val grooves: Boolean = true,
+    val sheen: Boolean = true,
+    val fast45: Boolean = false,
+    val labelSize: LabelSize = LabelSize.MEDIUM,
+    /** Vinilo dentro de una funda con la carátula (solo en "Vinilo clásico"). */
+    val sleeve: Boolean = false,
+)
+
+/** Todo lo que decide cómo se ve la pantalla de reproducción. */
+data class PlayerAppearance(
+    val style: PlayerStyle = PlayerStyle.COVER,
+    val background: PlayerBackground = PlayerBackground.GLOW,
+    val look: PlayerLook = PlayerLook(),
+)
 
 /**
  * Ajustes del usuario. [libraryVersion] sube cada vez que cambia algo que altera qué canciones
@@ -21,8 +46,12 @@ data class SettingsState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val openPlayerOnTap: Boolean = false,
     val playerStyle: PlayerStyle = PlayerStyle.COVER,
+    val playerBackground: PlayerBackground = PlayerBackground.GLOW,
+    val look: PlayerLook = PlayerLook(),
     val libraryVersion: Int = 0,
 ) {
+    val appearance: PlayerAppearance get() = PlayerAppearance(playerStyle, playerBackground, look)
+
     /** Una carpeta queda excluida si ella o alguna carpeta superior está en la lista. */
     fun isFolderExcluded(folder: String): Boolean = excludedFolders.any { folder.startsWith(it, ignoreCase = true) }
 
@@ -54,6 +83,10 @@ class AppSettings(context: Context) {
 
     fun setPlayerStyle(value: PlayerStyle) = update(libraryChanged = false) { it.copy(playerStyle = value) }
 
+    fun setPlayerBackground(value: PlayerBackground) = update(libraryChanged = false) { it.copy(playerBackground = value) }
+
+    fun setLook(transform: (PlayerLook) -> PlayerLook) = update(libraryChanged = false) { it.copy(look = transform(it.look)) }
+
     private fun update(libraryChanged: Boolean, transform: (SettingsState) -> SettingsState) {
         synchronized(this) {
             val old = _state.value
@@ -76,7 +109,19 @@ class AppSettings(context: Context) {
         playerStyle = prefs.getString(KEY_PLAYER_STYLE, null)
             ?.let { name -> PlayerStyle.entries.firstOrNull { it.name == name } }
             ?: PlayerStyle.COVER,
+        playerBackground = prefs.enumOf(KEY_PLAYER_BG, PlayerBackground.GLOW),
+        look = PlayerLook(
+            vinylColor = prefs.enumOf(KEY_VINYL_COLOR, VinylColor.BLACK),
+            grooves = prefs.getBoolean(KEY_GROOVES, true),
+            sheen = prefs.getBoolean(KEY_SHEEN, true),
+            fast45 = prefs.getBoolean(KEY_FAST45, false),
+            labelSize = prefs.enumOf(KEY_LABEL_SIZE, LabelSize.MEDIUM),
+            sleeve = prefs.getBoolean(KEY_SLEEVE, false),
+        ),
     )
+
+    private inline fun <reified E : Enum<E>> android.content.SharedPreferences.enumOf(key: String, default: E): E =
+        getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
     private fun write(state: SettingsState) {
         prefs.edit()
@@ -86,6 +131,13 @@ class AppSettings(context: Context) {
             .putString(KEY_THEME, state.themeMode.name)
             .putBoolean(KEY_OPEN_ON_TAP, state.openPlayerOnTap)
             .putString(KEY_PLAYER_STYLE, state.playerStyle.name)
+            .putString(KEY_PLAYER_BG, state.playerBackground.name)
+            .putString(KEY_VINYL_COLOR, state.look.vinylColor.name)
+            .putBoolean(KEY_GROOVES, state.look.grooves)
+            .putBoolean(KEY_SHEEN, state.look.sheen)
+            .putBoolean(KEY_FAST45, state.look.fast45)
+            .putString(KEY_LABEL_SIZE, state.look.labelSize.name)
+            .putBoolean(KEY_SLEEVE, state.look.sleeve)
             .apply()
     }
 
@@ -96,5 +148,12 @@ class AppSettings(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_OPEN_ON_TAP = "open_player_on_tap"
         const val KEY_PLAYER_STYLE = "player_style"
+        const val KEY_PLAYER_BG = "player_background"
+        const val KEY_VINYL_COLOR = "vinyl_color"
+        const val KEY_GROOVES = "vinyl_grooves"
+        const val KEY_SHEEN = "vinyl_sheen"
+        const val KEY_FAST45 = "vinyl_fast45"
+        const val KEY_LABEL_SIZE = "vinyl_label_size"
+        const val KEY_SLEEVE = "vinyl_sleeve"
     }
 }

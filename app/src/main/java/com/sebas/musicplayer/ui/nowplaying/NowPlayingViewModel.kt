@@ -7,7 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.settings.AppSettings
-import com.sebas.musicplayer.data.settings.PlayerStyle
+import com.sebas.musicplayer.data.settings.PlayerAppearance
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,11 +23,11 @@ class NowPlayingViewModel(
 
     val playerState: StateFlow<PlayerState> = playerController.state
 
-    /** Estilo de la carátula elegido en Configuración. */
-    val playerStyle: StateFlow<PlayerStyle> = settings.state
-        .map { it.playerStyle }
+    /** Estilo, fondo y opciones del vinilo elegidos en Configuración. */
+    val appearance: StateFlow<PlayerAppearance> = settings.state
+        .map { it.appearance }
         .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, settings.current.playerStyle)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, settings.current.appearance)
 
     fun togglePlayPause() = playerController.togglePlayPause()
     fun next() = playerController.next()
