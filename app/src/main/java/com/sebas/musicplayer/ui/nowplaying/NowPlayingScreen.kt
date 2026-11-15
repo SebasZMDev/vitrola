@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -89,7 +91,6 @@ fun NowPlayingRoute(
         onNext = viewModel::next,
         onPrevious = viewModel::previous,
         onSeekTo = viewModel::seekTo,
-        onToggleShuffle = viewModel::toggleShuffle,
         onCycleRepeat = viewModel::cycleRepeatMode,
         onSkipToQueueItem = viewModel::skipToQueueItem,
         onRemoveFromQueue = viewModel::removeFromQueue,
@@ -110,7 +111,6 @@ fun NowPlayingScreen(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onSeekTo: (Long) -> Unit,
-    onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onSkipToQueueItem: (Int) -> Unit,
     onRemoveFromQueue: (Int) -> Unit,
@@ -197,7 +197,6 @@ fun NowPlayingScreen(
                         onTogglePlayPause = onTogglePlayPause,
                         onNext = onNext,
                         onPrevious = onPrevious,
-                        onToggleShuffle = onToggleShuffle,
                         onCycleRepeat = onCycleRepeat,
                     )
                     Spacer(Modifier.height(12.dp))
@@ -356,20 +355,38 @@ private fun Controls(
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
-    onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    // Un solo botón: normal -> repetir una -> mix. Mix = aleatorio (con repetir todo, ver el servicio).
+    val mode = when {
+        state.shuffleEnabled -> PlayMode.MIX
+        state.repeatMode == RepeatMode.ONE -> PlayMode.REPEAT_ONE
+        else -> PlayMode.NORMAL
+    }
+    val next = when (mode) {
+        PlayMode.NORMAL -> PlayMode.REPEAT_ONE
+        PlayMode.REPEAT_ONE -> PlayMode.MIX
+        PlayMode.MIX -> PlayMode.NORMAL
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ToggleControl(
-            icon = Icons.Filled.Shuffle,
-            description = if (state.shuffleEnabled) "Aleatorio activado" else "Aleatorio desactivado",
-            active = state.shuffleEnabled,
-            onClick = onToggleShuffle,
+            icon = when (mode) {
+                PlayMode.NORMAL -> Icons.Filled.Repeat
+                PlayMode.REPEAT_ONE -> Icons.Filled.RepeatOne
+                PlayMode.MIX -> Icons.Filled.Shuffle
+            },
+            description = mode.label,
+            active = mode != PlayMode.NORMAL,
+            onClick = {
+                onCycleRepeat()
+                Toast.makeText(context, next.label, Toast.LENGTH_SHORT).show()
+            },
         )
         IconButton(onClick = onPrevious, modifier = Modifier.size(56.dp)) {
             Icon(Icons.Filled.SkipPrevious, contentDescription = "Anterior", modifier = Modifier.size(40.dp))
@@ -394,17 +411,15 @@ private fun Controls(
         IconButton(onClick = onNext, modifier = Modifier.size(56.dp)) {
             Icon(Icons.Filled.SkipNext, contentDescription = "Siguiente", modifier = Modifier.size(40.dp))
         }
-        ToggleControl(
-            icon = if (state.repeatMode == RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-            description = when (state.repeatMode) {
-                RepeatMode.OFF -> "Repetir desactivado"
-                RepeatMode.ALL -> "Repetir todo"
-                RepeatMode.ONE -> "Repetir una canción"
-            },
-            active = state.repeatMode != RepeatMode.OFF,
-            onClick = onCycleRepeat,
-        )
+        // Mismo ancho que el botón de modo, para que anterior/play/siguiente queden centrados.
+        Spacer(Modifier.size(48.dp))
     }
+}
+
+private enum class PlayMode(val label: String) {
+    NORMAL("Reproducción normal"),
+    REPEAT_ONE("Repetir una canción"),
+    MIX("Mix: aleatorio sin parar"),
 }
 
 /** Botón de modo (aleatorio, repetir): activo se pinta con el acento y lleva un punto debajo. */
@@ -454,7 +469,6 @@ private fun NowPlayingScreenPreview() {
             onNext = {},
             onPrevious = {},
             onSeekTo = {},
-            onToggleShuffle = {},
             onCycleRepeat = {},
             onSkipToQueueItem = {},
             onRemoveFromQueue = {},

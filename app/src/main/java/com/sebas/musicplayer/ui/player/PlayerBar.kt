@@ -88,14 +88,14 @@ fun PlayerBar(
                 Row(
                     modifier = Modifier
                         .clickable(onClickLabel = "Abrir reproductor", onClick = onClick)
-                        .padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                        .padding(start = 10.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(44.dp), cornerRadius = 10.dp)
-                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(56.dp), cornerRadius = 12.dp)
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
                         Text(
                             song.title,
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -108,15 +108,15 @@ fun PlayerBar(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    IconButton(onClick = onPlayPause) {
+                    IconButton(onClick = onPlayPause, modifier = Modifier.size(52.dp)) {
                         Icon(
                             if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
-                            modifier = Modifier.size(30.dp),
+                            modifier = Modifier.size(36.dp),
                         )
                     }
-                    IconButton(onClick = onNext) {
-                        Icon(Icons.Default.SkipNext, contentDescription = "Siguiente", modifier = Modifier.size(28.dp))
+                    IconButton(onClick = onNext, modifier = Modifier.size(52.dp)) {
+                        Icon(Icons.Default.SkipNext, contentDescription = "Siguiente", modifier = Modifier.size(32.dp))
                     }
                 }
                 Box(Modifier.fillMaxWidth().height(2.dp).background(colors.onSurface.copy(alpha = 0.12f))) {

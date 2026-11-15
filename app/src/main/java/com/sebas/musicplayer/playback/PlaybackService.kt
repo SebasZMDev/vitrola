@@ -5,9 +5,11 @@ import android.content.Intent
 import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.sebas.musicplayer.MusicApp
@@ -60,6 +62,24 @@ class PlaybackService : MediaSessionService() {
         restoreQueue(exo)
         exo.addListener(persistListener)
         exo.addListener(skipBrokenListener)
+        exo.addListener(reshuffleListener)
+    }
+
+    /**
+     * Modo mix (aleatorio + repetir todo): ExoPlayer repetiría el mismo orden al dar la vuelta.
+     * Al volver a la primera canción del orden se genera un orden nuevo.
+     */
+    private val reshuffleListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val exo = player ?: return
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return
+            if (!exo.shuffleModeEnabled || exo.repeatMode != Player.REPEAT_MODE_ALL) return
+            if (exo.mediaItemCount < 3) return
+            val timeline = exo.currentTimeline
+            if (exo.currentMediaItemIndex == timeline.getFirstWindowIndex(true)) {
+                exo.setShuffleOrder(DefaultShuffleOrder(exo.mediaItemCount))
+            }
+        }
     }
 
     private val container get() = (application as MusicApp).container

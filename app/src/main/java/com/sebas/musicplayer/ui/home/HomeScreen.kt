@@ -40,7 +40,11 @@ import com.sebas.musicplayer.ui.library.SongsTab
 import com.sebas.musicplayer.ui.playlists.PlaylistsTab
 import kotlinx.coroutines.launch
 
-private val tabs = listOf("Canciones", "Álbumes", "Artistas", "Playlists")
+private val tabs = listOf("Canciones", "Playlists", "Álbumes", "Artistas")
+
+/** Orden antiguo de las pestañas: el índice guardado antes del 2026-11-15 apunta a esta lista. */
+private val legacyTabs = listOf("Canciones", "Álbumes", "Artistas", "Playlists")
+private const val TAB_KEY = "home_tab_name"
 
 /** Pantalla principal: título, barra de búsqueda y pestañas deslizables. Cada pestaña es de un agente distinto. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,12 +56,16 @@ fun HomeScreen(
     onPlaylistClick: (Long) -> Unit,
 ) {
     val prefs = LocalContext.current.applicationContext.getSharedPreferences("ui_state", 0)
+    // Se guarda el nombre de la pestaña (no su posición) para que cambiar el orden no la confunda.
+    // Si solo existe el índice del orden antiguo, se traduce a su nombre.
+    val savedTab = prefs.getString(TAB_KEY, null)
+        ?: legacyTabs.getOrNull(prefs.getInt("home_tab", 0))
     val pagerState = rememberPagerState(
-        initialPage = prefs.getInt("home_tab", 0).coerceIn(0, tabs.lastIndex),
+        initialPage = tabs.indexOf(savedTab).coerceAtLeast(0),
         pageCount = { tabs.size },
     )
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page -> prefs.edit { putInt("home_tab", page) } }
+        snapshotFlow { pagerState.currentPage }.collect { page -> prefs.edit { putString(TAB_KEY, tabs[page]) } }
     }
     val scope = rememberCoroutineScope()
 
@@ -101,9 +109,9 @@ fun HomeScreen(
                 val pageModifier = Modifier.fillMaxSize()
                 when (page) {
                     0 -> SongsTab(modifier = pageModifier)
-                    1 -> AlbumsTab(onAlbumClick = onAlbumClick, modifier = pageModifier)
-                    2 -> ArtistsTab(onArtistClick = onArtistClick, modifier = pageModifier)
-                    else -> PlaylistsTab(onPlaylistClick = onPlaylistClick, modifier = pageModifier)
+                    1 -> PlaylistsTab(onPlaylistClick = onPlaylistClick, modifier = pageModifier)
+                    2 -> AlbumsTab(onAlbumClick = onAlbumClick, modifier = pageModifier)
+                    else -> ArtistsTab(onArtistClick = onArtistClick, modifier = pageModifier)
                 }
             }
         }

@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -111,10 +114,17 @@ private fun PlaylistsContent(
         )
         return
     }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-        item(key = "new", contentType = "new") { NewPlaylistRow(onNewPlaylist) }
+    // Cuadrícula como la de Álbumes: tarjetas cuadradas grandes, 2 por fila en un celular.
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(150.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item(key = "new", contentType = "new") { NewPlaylistCard(onNewPlaylist) }
         items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
-            PlaylistRow(
+            PlaylistCard(
                 playlist = playlist,
                 onClick = { onPlaylistClick(playlist.id) },
                 onRename = { onRename(playlist) },
@@ -125,67 +135,78 @@ private fun PlaylistsContent(
 }
 
 @Composable
-private fun NewPlaylistRow(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun NewPlaylistCard(onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(4.dp),
     ) {
         Box(
             Modifier
-                .size(56.dp)
+                .fillMaxWidth()
+                .aspectRatio(1f)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                Icons.Default.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp),
+            )
         }
         Text(
             "Nueva playlist",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp),
+            maxLines = 1,
+            modifier = Modifier.padding(start = 2.dp, end = 2.dp, top = 8.dp, bottom = 4.dp),
         )
     }
 }
 
 @Composable
-private fun PlaylistRow(
+private fun PlaylistCard(
     playlist: Playlist,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
+    Column(
+        Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(4.dp),
     ) {
-        PlaylistTile(size = 56.dp, cornerRadius = 12.dp)
-        Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(
-                playlist.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                songCountLabel(playlist.songCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
+        PlaylistTile(size = null, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
+        Row(Modifier.padding(start = 2.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    playlist.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    songCountLabel(playlist.songCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text("Renombrar") }, onClick = { expanded = false; onRename() })
-                DropdownMenuItem(text = { Text("Eliminar") }, onClick = { expanded = false; onDelete() })
+            Box {
+                IconButton(onClick = { expanded = true }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Más opciones")
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(text = { Text("Renombrar") }, onClick = { expanded = false; onRename() })
+                    DropdownMenuItem(text = { Text("Eliminar") }, onClick = { expanded = false; onDelete() })
+                }
             }
         }
     }
@@ -193,11 +214,10 @@ private fun PlaylistRow(
 
 /** "Carátula" de una playlist: cuadro con degradado del tema y el ícono de lista. */
 @Composable
-internal fun PlaylistTile(size: Dp, cornerRadius: Dp, modifier: Modifier = Modifier) {
+internal fun PlaylistTile(size: Dp?, cornerRadius: Dp, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     Box(
-        modifier = modifier
-            .size(size)
+        modifier = (if (size != null) modifier.size(size) else modifier)
             .clip(RoundedCornerShape(cornerRadius))
             .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer))),
         contentAlignment = Alignment.Center,
@@ -206,7 +226,8 @@ internal fun PlaylistTile(size: Dp, cornerRadius: Dp, modifier: Modifier = Modif
             Icons.AutoMirrored.Filled.QueueMusic,
             contentDescription = null,
             tint = colors.onPrimaryContainer,
-            modifier = Modifier.size(size * 0.45f),
+            // Con tamaño fijo, el ícono es el 45 %; en la tarjeta (tamaño libre) se usa 48 dp.
+            modifier = Modifier.size(if (size != null) size * 0.45f else 48.dp),
         )
     }
 }

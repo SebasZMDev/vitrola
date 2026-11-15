@@ -174,11 +174,24 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
 
     override fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
 
+    /**
+     * Botón único de modo: normal -> repetir una -> mix -> normal.
+     * Mix = aleatorio + repetir todo (al acabar la cola vuelve a mezclar y sigue).
+     * Cualquier otra combinación (p. ej. una cola guardada con "repetir todo" sin aleatorio) pasa a "repetir una".
+     */
     override fun cycleRepeatMode() = withController {
-        it.repeatMode = when (it.repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
+        val repeatOne = it.repeatMode == Player.REPEAT_MODE_ONE && !it.shuffleModeEnabled
+        val mix = it.shuffleModeEnabled
+        when {
+            repeatOne -> {
+                it.shuffleModeEnabled = true
+                it.repeatMode = Player.REPEAT_MODE_ALL
+            }
+            mix -> {
+                it.shuffleModeEnabled = false
+                it.repeatMode = Player.REPEAT_MODE_OFF
+            }
+            else -> it.repeatMode = Player.REPEAT_MODE_ONE
         }
     }
 
