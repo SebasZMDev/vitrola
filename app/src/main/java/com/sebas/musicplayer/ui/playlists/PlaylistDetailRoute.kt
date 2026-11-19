@@ -146,7 +146,7 @@ private fun PlaylistDetailContent(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    PlaylistTile(size = 180.dp, cornerRadius = 20.dp)
+                    PlaylistTile(size = 180.dp, cornerRadius = 20.dp, artworks = coverArtworks(state.songs.take(12)))
                     Text(
                         state.playlist?.name.orEmpty(),
                         style = MaterialTheme.typography.headlineSmall,

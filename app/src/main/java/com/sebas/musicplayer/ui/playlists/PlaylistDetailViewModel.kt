@@ -36,6 +36,7 @@ class PlaylistDetailViewModel(
     private val repository: PlaylistRepository,
     private val songRepository: SongRepository,
     private val playerController: PlayerController,
+    deletions: kotlinx.coroutines.flow.Flow<Set<Long>>,
 ) : ViewModel() {
 
     private val songsById = MutableStateFlow<Map<Long, Song>?>(null)
@@ -56,6 +57,7 @@ class PlaylistDetailViewModel(
     val playerState: StateFlow<PlayerState> = playerController.state
 
     init {
+        viewModelScope.launch { deletions.collect { ids -> songsById.value = songsById.value?.minus(ids) } }
         viewModelScope.launch { songsById.value = songRepository.getSongs().associateBy { it.id } }
     }
 
@@ -80,7 +82,7 @@ class PlaylistDetailViewModel(
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
                 val container = app.container
-                PlaylistDetailViewModel(playlistId, container.playlistRepository, container.songRepository, container.playerController)
+                PlaylistDetailViewModel(playlistId, container.playlistRepository, container.songRepository, container.playerController, container.songDeletions)
             }
         }
     }

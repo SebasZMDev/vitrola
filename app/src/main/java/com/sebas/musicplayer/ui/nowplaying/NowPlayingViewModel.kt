@@ -37,6 +37,7 @@ class NowPlayingViewModel(
     fun cycleRepeatMode() = playerController.cycleRepeatMode()
     fun skipToQueueItem(index: Int) = playerController.skipToQueueItem(index)
     fun removeFromQueue(index: Int) = playerController.removeFromQueue(index)
+    fun clearQueue() = playerController.clearQueue()
     fun moveQueueItem(from: Int, to: Int) = playerController.moveQueueItem(from, to)
 
     companion object {

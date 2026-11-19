@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.sebas.musicplayer.ui.components.ZmSignature
 import com.sebas.musicplayer.data.settings.LabelSize
 import com.sebas.musicplayer.data.settings.PlayerBackground
 import com.sebas.musicplayer.data.settings.PlayerLook
@@ -260,6 +261,7 @@ internal fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
+            item { ZmSignature(Modifier.padding(top = 24.dp, bottom = 32.dp)) }
         }
     }
 }

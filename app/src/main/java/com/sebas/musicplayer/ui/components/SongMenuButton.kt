@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.DropdownMenu
@@ -53,6 +54,7 @@ fun SongMenuButton(
         if (expanded) {
             val viewModel: SongActionsViewModel = viewModel(factory = SongActionsViewModel.Factory)
             val context = LocalContext.current
+            val deleteSongs = LocalDeleteSongs.current
             DropdownMenu(expanded = true, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(
                     text = { Text("Reproducir siguiente") },
@@ -78,6 +80,11 @@ fun SongMenuButton(
                     onClick = { expanded = false; showPlaylistDialog = true },
                 )
                 extraItems?.invoke { expanded = false }
+                DropdownMenuItem(
+                    text = { Text("Eliminar del teléfono") },
+                    leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null) },
+                    onClick = { expanded = false; deleteSongs(listOf(song)) },
+                )
             }
         }
     }

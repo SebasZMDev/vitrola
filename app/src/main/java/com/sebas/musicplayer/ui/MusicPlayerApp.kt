@@ -30,6 +30,7 @@ import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.settings.ThemeMode
 import com.sebas.musicplayer.ui.components.LocalIsPlaying
 import com.sebas.musicplayer.ui.components.LocalOnSongTap
+import com.sebas.musicplayer.ui.components.ProvideSongDeleter
 import com.sebas.musicplayer.ui.settings.SettingsRoute
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -99,7 +100,7 @@ fun MusicPlayerApp() {
     }
     MusicPlayerTheme(darkTheme = dark) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            AudioPermissionGate { AppShell() }
+            AudioPermissionGate { ProvideSongDeleter { AppShell() } }
         }
     }
 }

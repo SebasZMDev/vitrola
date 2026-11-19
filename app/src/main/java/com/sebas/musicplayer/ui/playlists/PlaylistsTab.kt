@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import android.net.Uri
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -45,18 +47,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sebas.musicplayer.domain.model.Playlist
 import com.sebas.musicplayer.ui.components.EmptyState
+import com.sebas.musicplayer.ui.components.SongArtwork
 
 /** Pestaña "Playlists" de HomeScreen. Sin Scaffold: solo el contenido. */
 @Composable
 fun PlaylistsTab(onPlaylistClick: (Long) -> Unit, modifier: Modifier = Modifier) {
     val viewModel: PlaylistsViewModel = viewModel(factory = PlaylistsViewModel.Factory)
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val covers by viewModel.covers.collectAsStateWithLifecycle()
     var showCreate by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<Playlist?>(null) }
     var deleting by remember { mutableStateOf<Playlist?>(null) }
 
     PlaylistsContent(
         playlists = playlists,
+        covers = covers,
         onNewPlaylist = { showCreate = true },
         onPlaylistClick = onPlaylistClick,
         onRename = { renaming = it },
@@ -93,6 +98,7 @@ fun PlaylistsTab(onPlaylistClick: (Long) -> Unit, modifier: Modifier = Modifier)
 @Composable
 private fun PlaylistsContent(
     playlists: List<Playlist>,
+    covers: Map<Long, List<Uri>>,
     onNewPlaylist: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onRename: (Playlist) -> Unit,
@@ -126,6 +132,7 @@ private fun PlaylistsContent(
         items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
             PlaylistCard(
                 playlist = playlist,
+                artworks = covers[playlist.id].orEmpty(),
                 onClick = { onPlaylistClick(playlist.id) },
                 onRename = { onRename(playlist) },
                 onDelete = { onDelete(playlist) },
@@ -170,6 +177,7 @@ private fun NewPlaylistCard(onClick: () -> Unit) {
 @Composable
 private fun PlaylistCard(
     playlist: Playlist,
+    artworks: List<Uri>,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
@@ -182,7 +190,7 @@ private fun PlaylistCard(
             .clickable(onClick = onClick)
             .padding(4.dp),
     ) {
-        PlaylistTile(size = null, cornerRadius = 12.dp, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
+        PlaylistTile(size = null, cornerRadius = 12.dp, artworks = artworks, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
         Row(Modifier.padding(start = 2.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
@@ -214,8 +222,29 @@ private fun PlaylistCard(
 
 /** "Carátula" de una playlist: cuadro con degradado del tema y el ícono de lista. */
 @Composable
-internal fun PlaylistTile(size: Dp?, cornerRadius: Dp, modifier: Modifier = Modifier) {
+internal fun PlaylistTile(size: Dp?, cornerRadius: Dp, modifier: Modifier = Modifier, artworks: List<Uri> = emptyList()) {
     val colors = MaterialTheme.colorScheme
+    if (artworks.isNotEmpty()) {
+        val base = if (size != null) modifier.size(size) else modifier
+        Box(base.clip(RoundedCornerShape(cornerRadius))) {
+            if (artworks.size == 1) {
+                SongArtwork(artworks[0], Modifier.fillMaxSize(), cornerRadius = 0.dp)
+            } else {
+                // 2x2; con 2 o 3 carátulas se repiten para no dejar huecos.
+                val cells = List(4) { artworks[it % artworks.size] }
+                Column(Modifier.fillMaxSize()) {
+                    for (row in 0..1) {
+                        Row(Modifier.weight(1f).fillMaxWidth()) {
+                            for (col in 0..1) {
+                                SongArtwork(cells[row * 2 + col], Modifier.weight(1f).fillMaxHeight(), cornerRadius = 0.dp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     Box(
         modifier = (if (size != null) modifier.size(size) else modifier)
             .clip(RoundedCornerShape(cornerRadius))
@@ -240,6 +269,7 @@ private fun PlaylistsContentPreview() {
     MaterialTheme {
         PlaylistsContent(
             playlists = listOf(Playlist(1, "Gym", 12), Playlist(2, "Road trip", 1)),
+            covers = emptyMap(),
             onNewPlaylist = {},
             onPlaylistClick = {},
             onRename = {},
@@ -254,6 +284,7 @@ private fun PlaylistsEmptyPreview() {
     MaterialTheme {
         PlaylistsContent(
             playlists = emptyList(),
+            covers = emptyMap(),
             onNewPlaylist = {},
             onPlaylistClick = {},
             onRename = {},

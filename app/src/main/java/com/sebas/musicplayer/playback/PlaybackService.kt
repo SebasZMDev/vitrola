@@ -10,7 +10,14 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
+import android.os.Bundle
+import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import androidx.media3.session.MediaSessionService
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.playback.session.QueueStore
@@ -48,6 +55,7 @@ class PlaybackService : MediaSessionService() {
         player = exo
         mediaSession = MediaSession.Builder(this, exo)
             .setSessionActivity(activityIntent)
+            .setCallback(sessionCallback)
             .build()
 
         // ExoPlayer no asigna su sesión de audio al construirse (queda en 0 = mezcla global, que los
@@ -63,6 +71,8 @@ class PlaybackService : MediaSessionService() {
         exo.addListener(persistListener)
         exo.addListener(skipBrokenListener)
         exo.addListener(reshuffleListener)
+        exo.addListener(modeButtonListener)
+        mediaSession?.setCustomLayout(ImmutableList.of(modeButton(exo)))
     }
 
     /**
@@ -79,6 +89,60 @@ class PlaybackService : MediaSessionService() {
             if (exo.currentMediaItemIndex == timeline.getFirstWindowIndex(true)) {
                 exo.setShuffleOrder(DefaultShuffleOrder(exo.mediaItemCount))
             }
+        }
+    }
+
+
+    // --- Botón de modo en la notificación: normal -> repetir una -> mix (igual que en la app). ---
+    private val cycleModeCommand = SessionCommand("zm.cycle_mode", Bundle.EMPTY)
+
+    private fun modeButton(exo: Player): CommandButton {
+        val (icon, name) = when {
+            exo.shuffleModeEnabled -> CommandButton.ICON_SHUFFLE_ON to "Mix: aleatorio sin parar"
+            exo.repeatMode == Player.REPEAT_MODE_ONE -> CommandButton.ICON_REPEAT_ONE to "Repetir una canción"
+            else -> CommandButton.ICON_REPEAT_OFF to "Reproducción normal"
+        }
+        return CommandButton.Builder(icon)
+            .setDisplayName(name)
+            .setSessionCommand(cycleModeCommand)
+            .build()
+    }
+
+    private val modeButtonListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED)) {
+                mediaSession?.setCustomLayout(ImmutableList.of(modeButton(player)))
+            }
+        }
+    }
+
+    private val sessionCallback = object : MediaSession.Callback {
+        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                .add(cycleModeCommand)
+                .build()
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(commands)
+                .setCustomLayout(ImmutableList.of(modeButton(session.player)))
+                .build()
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == cycleModeCommand.customAction) {
+                val p = session.player
+                val repeatOne = p.repeatMode == Player.REPEAT_MODE_ONE && !p.shuffleModeEnabled
+                when {
+                    repeatOne -> { p.shuffleModeEnabled = true; p.repeatMode = Player.REPEAT_MODE_ALL }
+                    p.shuffleModeEnabled -> { p.shuffleModeEnabled = false; p.repeatMode = Player.REPEAT_MODE_OFF }
+                    else -> p.repeatMode = Player.REPEAT_MODE_ONE
+                }
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
     }
 

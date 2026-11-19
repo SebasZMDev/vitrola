@@ -40,6 +40,7 @@ private const val MAX_GROUPS = 20
 class SearchViewModel(
     private val songRepository: SongRepository,
     private val playerController: PlayerController,
+    deletions: kotlinx.coroutines.flow.Flow<Set<Long>>,
 ) : ViewModel() {
 
     private val allSongs = MutableStateFlow<List<Song>?>(null)
@@ -53,6 +54,7 @@ class SearchViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchResults())
 
     init {
+        viewModelScope.launch { deletions.collect { ids -> allSongs.value = allSongs.value?.filter { it.id !in ids } } }
         viewModelScope.launch {
             allSongs.value = try {
                 songRepository.getSongs()
@@ -90,7 +92,7 @@ class SearchViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                SearchViewModel(app.container.songRepository, app.container.playerController)
+                SearchViewModel(app.container.songRepository, app.container.playerController, app.container.songDeletions)
             }
         }
     }

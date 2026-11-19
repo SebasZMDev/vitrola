@@ -30,6 +30,8 @@ interface PlayerController {
     /** Agrega [song] al final de la cola. Si la cola está vacía, empieza a reproducirla. */
     fun addToQueue(song: Song)
     fun removeFromQueue(index: Int)
+    /** Vacía la cola y detiene la reproducción. */
+    fun clearQueue()
     fun moveQueueItem(from: Int, to: Int)
 }
 

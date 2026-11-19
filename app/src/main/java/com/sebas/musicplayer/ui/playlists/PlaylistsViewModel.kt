@@ -1,6 +1,7 @@
 package com.sebas.musicplayer.ui.playlists
 
 import android.app.Application
+import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -9,7 +10,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.data.playlist.PlaylistRepository
+import com.sebas.musicplayer.data.library.SongRepository
 import com.sebas.musicplayer.domain.model.Playlist
+import com.sebas.musicplayer.domain.model.Song
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -19,7 +24,19 @@ import kotlinx.coroutines.launch
 class PlaylistsViewModel(
     private val application: Application,
     private val repository: PlaylistRepository,
+    private val songRepository: SongRepository,
 ) : ViewModel() {
+
+    private val songsById = MutableStateFlow<Map<Long, Song>>(emptyMap())
+
+    /** Hasta 4 carátulas distintas por playlist, para el collage. */
+    val covers: StateFlow<Map<Long, List<Uri>>> = combine(repository.observeCoverSongIds(), songsById) { refs, songs ->
+        refs.mapValues { (_, ids) -> coverArtworks(ids.mapNotNull { songs[it] }) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    init {
+        viewModelScope.launch { songsById.value = songRepository.getSongs().associateBy { it.id } }
+    }
 
     val playlists: StateFlow<List<Playlist>> = repository.observePlaylists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -65,8 +82,12 @@ class PlaylistsViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                PlaylistsViewModel(app, app.container.playlistRepository)
+                PlaylistsViewModel(app, app.container.playlistRepository, app.container.songRepository)
             }
         }
     }
 }
+
+/** Hasta 4 carátulas distintas (por URI) en el orden de la playlist. */
+internal fun coverArtworks(songs: List<Song>): List<Uri> =
+    songs.mapNotNull { it.artworkUri }.distinct().take(4)

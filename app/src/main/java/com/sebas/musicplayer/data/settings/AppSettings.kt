@@ -13,6 +13,11 @@ enum class PlayerStyle { COVER, VINYL, CD, TURNTABLE, CASSETTE, RADIO }
 /** Fondo de la pantalla de reproducción. OLED es negro puro y solo se aplica con el tema oscuro. */
 enum class PlayerBackground { GLOW, BLUR, OLED }
 
+/** Criterio para ordenar la lista de canciones. */
+enum class SongSortField(val label: String) { TITLE("Título"), ARTIST("Artista"), ALBUM("Álbum"), DURATION("Duración") }
+
+data class SongSort(val field: SongSortField = SongSortField.TITLE, val ascending: Boolean = true)
+
 enum class VinylColor { BLACK, RED, BLUE, COVER }
 
 enum class LabelSize(val fraction: Float) { SMALL(0.28f), MEDIUM(0.36f), LARGE(0.46f) }
@@ -48,6 +53,7 @@ data class SettingsState(
     val playerStyle: PlayerStyle = PlayerStyle.COVER,
     val playerBackground: PlayerBackground = PlayerBackground.GLOW,
     val look: PlayerLook = PlayerLook(),
+    val songSort: SongSort = SongSort(),
     val libraryVersion: Int = 0,
 ) {
     val appearance: PlayerAppearance get() = PlayerAppearance(playerStyle, playerBackground, look)
@@ -85,6 +91,8 @@ class AppSettings(context: Context) {
 
     fun setPlayerBackground(value: PlayerBackground) = update(libraryChanged = false) { it.copy(playerBackground = value) }
 
+    fun setSongSort(value: SongSort) = update(libraryChanged = false) { it.copy(songSort = value) }
+
     fun setLook(transform: (PlayerLook) -> PlayerLook) = update(libraryChanged = false) { it.copy(look = transform(it.look)) }
 
     private fun update(libraryChanged: Boolean, transform: (SettingsState) -> SettingsState) {
@@ -110,6 +118,7 @@ class AppSettings(context: Context) {
             ?.let { name -> PlayerStyle.entries.firstOrNull { it.name == name } }
             ?: PlayerStyle.COVER,
         playerBackground = prefs.enumOf(KEY_PLAYER_BG, PlayerBackground.GLOW),
+        songSort = SongSort(prefs.enumOf(KEY_SORT_FIELD, SongSortField.TITLE), prefs.getBoolean(KEY_SORT_ASC, true)),
         look = PlayerLook(
             vinylColor = prefs.enumOf(KEY_VINYL_COLOR, VinylColor.BLACK),
             grooves = prefs.getBoolean(KEY_GROOVES, true),
@@ -138,6 +147,8 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_FAST45, state.look.fast45)
             .putString(KEY_LABEL_SIZE, state.look.labelSize.name)
             .putBoolean(KEY_SLEEVE, state.look.sleeve)
+            .putString(KEY_SORT_FIELD, state.songSort.field.name)
+            .putBoolean(KEY_SORT_ASC, state.songSort.ascending)
             .apply()
     }
 
@@ -155,5 +166,7 @@ class AppSettings(context: Context) {
         const val KEY_FAST45 = "vinyl_fast45"
         const val KEY_LABEL_SIZE = "vinyl_label_size"
         const val KEY_SLEEVE = "vinyl_sleeve"
+        const val KEY_SORT_FIELD = "song_sort_field"
+        const val KEY_SORT_ASC = "song_sort_asc"
     }
 }

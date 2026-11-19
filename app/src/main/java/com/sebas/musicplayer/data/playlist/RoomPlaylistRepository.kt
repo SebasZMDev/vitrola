@@ -19,6 +19,9 @@ class RoomPlaylistRepository(context: Context) : PlaylistRepository {
 
     override fun observeSongIds(playlistId: Long): Flow<List<Long>> = dao.observeSongIds(playlistId)
 
+    override fun observeCoverSongIds(): Flow<Map<Long, List<Long>>> =
+        dao.observeCoverRefs().map { refs -> refs.groupBy({ it.playlistId }, { it.songId }) }
+
     override suspend fun create(name: String): Long =
         dao.insertPlaylist(PlaylistEntity(name = name, createdAt = System.currentTimeMillis()))
 

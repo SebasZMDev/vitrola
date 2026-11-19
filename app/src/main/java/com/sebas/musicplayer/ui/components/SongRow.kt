@@ -1,7 +1,13 @@
 package com.sebas.musicplayer.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +42,7 @@ val LocalOnSongTap = compositionLocalOf<() -> Unit> { {} }
  * La canción actual se marca con las barritas de [PlayingIndicator].
  * CONTRATO compartido: no cambiar la firma sin avisar al orquestador.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongRow(
     song: Song,
@@ -45,16 +52,26 @@ fun SongRow(
     showArtwork: Boolean = true,
     trackNumber: Int? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** Pulsación larga (activa la selección múltiple). */
+    onLongClick: (() -> Unit)? = null,
+    /** Fila marcada en modo selección: se pinta con un fondo suave. */
+    selected: Boolean = false,
+    /** En modo selección tocar no reproduce: solo llama a [onClick]. */
+    selectionMode: Boolean = false,
 ) {
     val titleColor = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val onSongTap = LocalOnSongTap.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                onClick()
-                onSongTap()
-            }
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.28f) else Color.Transparent)
+            .combinedClickable(
+                onLongClick = onLongClick,
+                onClick = {
+                    onClick()
+                    if (!selectionMode) onSongTap()
+                },
+            )
             .padding(start = 16.dp, end = if (trailing != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -62,7 +79,19 @@ fun SongRow(
         if (showArtwork) {
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(48.dp))
-                if (isCurrent) {
+                if (selectionMode) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                            .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) Icon(Icons.Filled.Check, contentDescription = "Seleccionada", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+                    }
+                } else if (isCurrent) {
                     Box(
                         Modifier
                             .matchParentSize()

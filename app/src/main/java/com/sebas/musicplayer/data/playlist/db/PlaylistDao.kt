@@ -12,6 +12,8 @@ data class PlaylistWithCount(
     val songCount: Int,
 )
 
+data class PlaylistSongRef(val playlistId: Long, val songId: Long)
+
 @Dao
 abstract class PlaylistDao {
     @Query(
@@ -36,6 +38,10 @@ abstract class PlaylistDao {
 
     @Query("SELECT songId FROM playlist_songs WHERE playlistId = :playlistId ORDER BY position")
     abstract fun observeSongIds(playlistId: Long): Flow<List<Long>>
+
+    /** Las primeras canciones de cada playlist (para armar su portada). */
+    @Query("SELECT playlistId, songId FROM playlist_songs WHERE position < 12 ORDER BY playlistId, position")
+    abstract fun observeCoverRefs(): Flow<List<PlaylistSongRef>>
 
     @Insert
     abstract suspend fun insertPlaylist(playlist: PlaylistEntity): Long

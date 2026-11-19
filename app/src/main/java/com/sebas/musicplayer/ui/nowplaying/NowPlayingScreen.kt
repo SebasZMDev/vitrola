@@ -100,6 +100,7 @@ fun NowPlayingRoute(
         onCycleRepeat = viewModel::cycleRepeatMode,
         onSkipToQueueItem = viewModel::skipToQueueItem,
         onRemoveFromQueue = viewModel::removeFromQueue,
+        onClearQueue = viewModel::clearQueue,
         onMoveQueueItem = viewModel::moveQueueItem,
         onOpenEqualizer = onOpenEqualizer,
     )
@@ -120,6 +121,7 @@ fun NowPlayingScreen(
     onCycleRepeat: () -> Unit,
     onSkipToQueueItem: (Int) -> Unit,
     onRemoveFromQueue: (Int) -> Unit,
+    onClearQueue: () -> Unit,
     onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     onOpenEqualizer: () -> Unit = {},
@@ -132,6 +134,7 @@ fun NowPlayingScreen(
             onDismiss = { showQueue = false },
             onSkipToItem = onSkipToQueueItem,
             onRemove = onRemoveFromQueue,
+            onClear = onClearQueue,
             onMove = onMoveQueueItem,
         )
     }
@@ -535,6 +538,7 @@ private fun NowPlayingScreenPreview() {
             onCycleRepeat = {},
             onSkipToQueueItem = {},
             onRemoveFromQueue = {},
+            onClearQueue = {},
             onMoveQueueItem = { _, _ -> },
         )
     }

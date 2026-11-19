@@ -36,6 +36,7 @@ class BrowseViewModel(
     private val repository: SongRepository,
     private val playerController: PlayerController,
     settings: AppSettings,
+    deletions: kotlinx.coroutines.flow.Flow<Set<Long>>,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BrowseState>(BrowseState.Loading)
@@ -47,18 +48,19 @@ class BrowseViewModel(
 
     init {
         load()
+        viewModelScope.launch { deletions.collect { load(forceRefresh = true) } }
         // Si cambian carpetas excluidas, WhatsApp o la duración mínima, se agrupa de nuevo.
         viewModelScope.launch {
             settings.state.map { it.libraryVersion }.distinctUntilChanged().drop(1).collect { load() }
         }
     }
 
-    fun load() {
+    fun load(forceRefresh: Boolean = false) {
         _state.value = BrowseState.Loading
         loadJob?.cancel() // una carga anterior pudo empezar con otros ajustes
         loadJob = viewModelScope.launch {
             _state.value = try {
-                val songs = repository.getSongs()
+                val songs = repository.getSongs(forceRefresh)
                 withContext(Dispatchers.Default) {
                     BrowseState.Loaded(groupAlbums(songs), groupArtists(songs))
                 }
@@ -78,7 +80,7 @@ class BrowseViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                BrowseViewModel(app.container.songRepository, app.container.playerController, app.container.settings)
+                BrowseViewModel(app.container.songRepository, app.container.playerController, app.container.settings, app.container.songDeletions)
             }
         }
     }

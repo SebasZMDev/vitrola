@@ -217,6 +217,11 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
         if (index in 0 until c.mediaItemCount) c.removeMediaItem(index)
     }
 
+    override fun clearQueue() = withController { c ->
+        c.stop()
+        c.clearMediaItems()
+    }
+
     override fun moveQueueItem(from: Int, to: Int) = withController { c ->
         val count = c.mediaItemCount
         if (from in 0 until count && to in 0 until count && from != to) c.moveMediaItem(from, to)

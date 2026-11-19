@@ -15,6 +15,7 @@ import com.sebas.musicplayer.playback.effects.AudioEffects
 import com.sebas.musicplayer.playback.effects.EqualizerAudioEffects
 import com.sebas.musicplayer.playback.sleep.SleepTimer
 import com.sebas.musicplayer.playback.sleep.SleepTimerController
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
  * Inyección de dependencias manual. Único lugar donde se eligen las implementaciones.
@@ -33,6 +34,9 @@ class AppContainer(context: Context) {
             settingsVersion = { settings.current.libraryVersion },
         )
     }
+
+    /** Ids de canciones eliminadas del teléfono; las listas abiertas las quitan al instante. */
+    val songDeletions = MutableSharedFlow<Set<Long>>(extraBufferCapacity = 8)
 
     val folderRepository: FolderRepository by lazy { MediaStoreFolderRepository(appContext.contentResolver) }
 

@@ -21,12 +21,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -34,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -65,6 +69,7 @@ fun QueueSheet(
     onDismiss: () -> Unit,
     onSkipToItem: (Int) -> Unit,
     onRemove: (Int) -> Unit,
+    onClear: () -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
 ) {
     ModalBottomSheet(
@@ -79,6 +84,10 @@ fun QueueSheet(
                 onRemove(index)
             },
             onMove = onMove,
+            onClear = {
+                onDismiss()
+                onClear()
+            },
         )
     }
 }
@@ -90,7 +99,18 @@ fun QueueSheetContent(
     onRemove: (Int) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
+    onClear: () -> Unit = {},
 ) {
+    var confirmClear by remember { mutableStateOf(false) }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("¿Vaciar la cola?") },
+            text = { Text("Se quitarán las ${state.queue.size} canciones y se detendrá la reproducción.") },
+            confirmButton = { TextButton(onClick = { confirmClear = false; onClear() }) { Text("Vaciar") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancelar") } },
+        )
+    }
     val listState = rememberLazyListState()
     var draggingIndex by remember { mutableIntStateOf(NO_DRAG) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -115,7 +135,11 @@ fun QueueSheetContent(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text("Cola", style = MaterialTheme.typography.titleLarge)
             Text(
                 text = "${state.queue.size} canciones · ${formatDuration(remainingMs)}",
@@ -129,6 +153,11 @@ fun QueueSheetContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        TextButton(onClick = { confirmClear = true }, enabled = state.queue.isNotEmpty()) {
+            Icon(Icons.Filled.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text("Vaciar", modifier = Modifier.padding(start = 6.dp))
+        }
         }
         LazyColumn(
             state = listState,

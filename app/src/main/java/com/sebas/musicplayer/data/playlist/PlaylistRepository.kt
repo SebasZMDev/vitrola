@@ -19,6 +19,9 @@ interface PlaylistRepository {
     /** Ids de canciones de la playlist, en orden. Puede tener duplicados si el usuario agrega dos veces. */
     fun observeSongIds(playlistId: Long): Flow<List<Long>>
 
+    /** Ids de las primeras canciones de cada playlist, para su portada. */
+    fun observeCoverSongIds(): Flow<Map<Long, List<Long>>>
+
     /** Crea una playlist y devuelve su id. */
     suspend fun create(name: String): Long
     suspend fun rename(playlistId: Long, name: String)
