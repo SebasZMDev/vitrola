@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Vitrola</string>
+    <string name="widget_description">Portada, canción y controles de Vitrola</string>
 </resources>

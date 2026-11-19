@@ -22,6 +22,8 @@ import androidx.media3.session.MediaSessionService
 import com.sebas.musicplayer.MusicApp
 import com.sebas.musicplayer.playback.session.QueueStore
 import com.sebas.musicplayer.ui.MainActivity
+import com.sebas.musicplayer.widget.PlayerWidget
+import com.sebas.musicplayer.widget.WidgetState
 
 class PlaybackService : MediaSessionService() {
 
@@ -72,7 +74,33 @@ class PlaybackService : MediaSessionService() {
         exo.addListener(skipBrokenListener)
         exo.addListener(reshuffleListener)
         exo.addListener(modeButtonListener)
+        exo.addListener(widgetListener)
+        pushWidget(exo)
         mediaSession?.setCustomLayout(ImmutableList.of(modeButton(exo)))
+    }
+
+    /** Mantiene el widget de inicio al día con la canción y el estado play/pausa. */
+    private val widgetListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_TIMELINE_CHANGED,
+                )
+            ) pushWidget(player)
+        }
+    }
+
+    private fun pushWidget(p: Player) {
+        val md = p.currentMediaItem?.mediaMetadata
+        val state = if (md == null) null else WidgetState(
+            title = md.title?.toString().orEmpty(),
+            artist = md.artist?.toString().orEmpty(),
+            artworkUri = md.artworkUri,
+            isPlaying = p.isPlaying,
+        )
+        PlayerWidget.update(this, state)
     }
 
     /**

@@ -1,10 +1,18 @@
 package com.sebas.musicplayer.ui.nowplaying
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -174,7 +182,7 @@ fun NowPlayingScreen(
                     )
                 },
         ) {
-            Header(album = song?.album, onBack = onBack)
+            Header(album = song?.album, side = sideLabel(state), onBack = onBack)
             if (song == null) {
                 EmptyState(
                     icon = Icons.Filled.MusicNote,
@@ -192,21 +200,41 @@ fun NowPlayingScreen(
                         onPrevious = onPrevious,
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
                     )
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        maxLines = 1,
-                        modifier = Modifier.fillMaxWidth().basicMarquee(),
+                    // Al cambiar de canción el texto sale hacia arriba y entra el nuevo desde abajo.
+                    AnimatedContent(
+                        targetState = song,
+                        contentKey = { it.id },
+                        transitionSpec = {
+                            (fadeIn(tween(260, delayMillis = 60)) + slideInVertically(tween(300)) { it / 3 }) togetherWith
+                                (fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it / 4 })
+                        },
+                        label = "songText",
+                    ) { s ->
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(
+                                text = s.title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                maxLines = 1,
+                                modifier = Modifier.fillMaxWidth().basicMarquee(),
+                            )
+                            Text(
+                                text = s.artist,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = colors.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    SoundBars(
+                        isPlaying = state.isPlaying,
+                        seed = song.id,
+                        color = glow,
+                        modifier = Modifier.fillMaxWidth().height(28.dp),
                     )
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                    )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(10.dp))
                     ProgressSection(
                         positionMs = state.positionMs,
                         durationMs = state.durationMs,
@@ -272,8 +300,16 @@ private fun PlayerBackdrop(
     }
 }
 
+/** "LADO A · PISTA 03 DE 12": estilo disquería. A las pistas impares, B a las pares. */
+private fun sideLabel(state: PlayerState): String {
+    val i = state.currentIndex
+    if (state.currentSong == null || i < 0 || state.queue.isEmpty()) return "REPRODUCIENDO"
+    val side = if (i % 2 == 0) "A" else "B"
+    return "LADO $side · PISTA %02d DE %02d".format(i + 1, state.queue.size)
+}
+
 @Composable
-private fun Header(album: String?, onBack: () -> Unit) {
+private fun Header(album: String?, side: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -283,9 +319,9 @@ private fun Header(album: String?, onBack: () -> Unit) {
         }
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "REPRODUCIENDO",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                side,
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp),
+                color = MaterialTheme.colorScheme.secondary,
             )
             if (!album.isNullOrBlank()) {
                 Text(

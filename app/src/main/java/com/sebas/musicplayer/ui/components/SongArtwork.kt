@@ -21,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.crossfade
 
 /**
  * Carátula de una canción. El tamaño lo decide quien la usa vía [modifier].
@@ -42,8 +43,16 @@ fun SongArtwork(
     // AsyncImage (sin subcomposición) es lo recomendado por Coil para listas largas.
     Box(modifier = clipped) {
         ArtworkPlaceholder(Modifier.fillMaxSize())
+        val context = androidx.compose.ui.platform.LocalContext.current
+        // Fundido corto: la carátula aparece suave en vez de saltar (también al cambiar de canción).
+        val request = androidx.compose.runtime.remember(artworkUri) {
+            coil3.request.ImageRequest.Builder(context)
+                .data(artworkUri)
+                .crossfade(250)
+                .build()
+        }
         AsyncImage(
-            model = artworkUri,
+            model = request,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,

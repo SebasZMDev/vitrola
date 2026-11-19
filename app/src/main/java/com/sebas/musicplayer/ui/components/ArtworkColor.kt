@@ -71,7 +71,7 @@ private suspend fun extractColor(context: Context, uri: Uri): Int? {
 }
 
 /** Promedio ponderado por lo "vivo" de cada píxel, para que no gane el gris o el negro del fondo. */
-private fun dominantColor(pixels: IntArray): Int? {
+internal fun dominantColor(pixels: IntArray): Int? {
     if (pixels.isEmpty()) return null
     val hsv = FloatArray(3)
     var r = 0.0
