@@ -17,7 +17,19 @@ import com.sebas.musicplayer.playback.effects.AudioEffects
 import com.sebas.musicplayer.playback.effects.EqualizerAudioEffects
 import com.sebas.musicplayer.playback.sleep.SleepTimer
 import com.sebas.musicplayer.playback.sleep.SleepTimerController
+import com.sebas.musicplayer.data.stats.SongStatsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
+private const val PLAY_COUNT_AFTER_MS = 20_000L
 
 /**
  * Inyección de dependencias manual. Único lugar donde se eligen las implementaciones.
@@ -48,6 +60,30 @@ class AppContainer(context: Context) {
 
     /** Avisa que se cambiaron metadatos; las listas abiertas se recargan. */
     val songEdits = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+
+    /** Favoritas e historial de reproducción. */
+    val statsRepository: SongStatsRepository by lazy {
+        SongStatsRepository(MusicDatabase.get(appContext).songStatsDao())
+    }
+
+    /**
+     * Cuenta una reproducción cuando una canción lleva 20 s como actual (saltarla antes no cuenta).
+     * Se llama una vez al iniciar la app.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun startPlayTracking() {
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            playerController.state
+                .map { it.currentSong?.id }
+                .distinctUntilChanged()
+                .collectLatest { id ->
+                    if (id != null) {
+                        delay(PLAY_COUNT_AFTER_MS)
+                        statsRepository.recordPlay(id)
+                    }
+                }
+        }
+    }
 
     /** Ids de canciones eliminadas del teléfono; las listas abiertas las quitan al instante. */
     val songDeletions = MutableSharedFlow<Set<Long>>(extraBufferCapacity = 8)

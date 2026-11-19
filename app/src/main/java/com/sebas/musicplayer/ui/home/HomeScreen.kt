@@ -58,6 +58,7 @@ fun HomeScreen(
     onAlbumClick: (Long) -> Unit,
     onArtistClick: (String) -> Unit,
     onPlaylistClick: (Long) -> Unit,
+    onSmartListClick: (String) -> Unit = {},
 ) {
     val prefs = LocalContext.current.applicationContext.getSharedPreferences("ui_state", 0)
     // Se guarda el nombre de la pestaña (no su posición) para que cambiar el orden no la confunda.
@@ -119,7 +120,7 @@ fun HomeScreen(
                 val pageModifier = Modifier.fillMaxSize()
                 when (page) {
                     0 -> SongsTab(modifier = pageModifier)
-                    1 -> PlaylistsTab(onPlaylistClick = onPlaylistClick, modifier = pageModifier)
+                    1 -> PlaylistsTab(onPlaylistClick = onPlaylistClick, onSmartListClick = onSmartListClick, modifier = pageModifier)
                     2 -> AlbumsTab(onAlbumClick = onAlbumClick, modifier = pageModifier)
                     else -> ArtistsTab(onArtistClick = onArtistClick, modifier = pageModifier)
                 }

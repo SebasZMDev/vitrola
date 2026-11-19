@@ -21,14 +21,14 @@ import androidx.compose.ui.unit.sp
 
 private val Brass = Color(0xFFB8924A)
 
-/** Firma ZM: letras serif cursiva entre un filete grueso arriba y uno fino abajo, en latón. Discreta, para pies. */
+/** Firma «ZM & C» (Sebas y Claude): serif cursiva entre un filete grueso arriba y uno fino abajo, en latón. Discreta, para pies. */
 @Composable
 fun ZmSignature(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.width(56.dp).height(1.5.dp).background(Brass))
+            Box(Modifier.width(84.dp).height(1.5.dp).background(Brass))
             Text(
-                "ZM",
+                "ZM & C",
                 style = TextStyle(
                     fontFamily = FontFamily.Serif,
                     fontStyle = FontStyle.Italic,
@@ -38,7 +38,7 @@ fun ZmSignature(modifier: Modifier = Modifier) {
                 ),
                 modifier = Modifier.padding(vertical = 4.dp),
             )
-            Box(Modifier.width(56.dp).height(0.6.dp).background(Brass))
+            Box(Modifier.width(84.dp).height(0.6.dp).background(Brass))
         }
     }
 }

@@ -7,6 +7,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewModelScope
+import com.sebas.musicplayer.data.stats.SongStatsRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.DropdownMenu
@@ -55,7 +65,16 @@ fun SongMenuButton(
             val viewModel: SongActionsViewModel = viewModel(factory = SongActionsViewModel.Factory)
             val context = LocalContext.current
             val deleteSongs = LocalDeleteSongs.current
+            val favoriteIds by viewModel.favoriteIds.collectAsState()
+            val isFavorite = song.id in favoriteIds
             DropdownMenu(expanded = true, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(if (isFavorite) "Quitar de favoritas" else "Agregar a favoritas") },
+                    leadingIcon = {
+                        Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null)
+                    },
+                    onClick = { expanded = false; viewModel.setFavorite(song.id, !isFavorite) },
+                )
                 DropdownMenuItem(
                     text = { Text("Reproducir siguiente") },
                     leadingIcon = { Icon(Icons.Default.SkipNext, contentDescription = null) },
@@ -94,15 +113,26 @@ fun SongMenuButton(
     }
 }
 
-class SongActionsViewModel(private val playerController: PlayerController) : ViewModel() {
+class SongActionsViewModel(
+    private val playerController: PlayerController,
+    private val stats: SongStatsRepository,
+) : ViewModel() {
     fun playNext(song: Song) = playerController.playNext(song)
     fun addToQueue(song: Song) = playerController.addToQueue(song)
+
+    val favoriteIds: StateFlow<Set<Long>> = stats.favoriteIds
+        .map { it.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    fun setFavorite(songId: Long, favorite: Boolean) {
+        viewModelScope.launch { stats.setFavorite(songId, favorite) }
+    }
 
     companion object {
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                SongActionsViewModel(app.container.playerController)
+                SongActionsViewModel(app.container.playerController, app.container.statsRepository)
             }
         }
     }

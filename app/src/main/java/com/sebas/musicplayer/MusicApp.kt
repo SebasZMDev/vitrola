@@ -14,6 +14,7 @@ class MusicApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.startPlayTracking()
     }
 
     /** Las carátulas aparecen con un fundido en vez de saltar de golpe. */

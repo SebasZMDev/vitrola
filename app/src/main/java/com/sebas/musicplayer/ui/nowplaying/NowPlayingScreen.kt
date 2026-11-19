@@ -40,6 +40,9 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -89,9 +92,12 @@ fun NowPlayingRoute(
 ) {
     val state by viewModel.playerState.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
+    val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
     NowPlayingScreen(
         state = state,
         appearance = appearance,
+        isFavorite = isFavorite,
+        onToggleFavorite = viewModel::toggleFavorite,
         onBack = onBack,
         onTogglePlayPause = viewModel::togglePlayPause,
         onNext = viewModel::next,
@@ -126,6 +132,8 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
     onOpenEqualizer: () -> Unit = {},
     appearance: PlayerAppearance = PlayerAppearance(),
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
 ) {
     var showQueue by remember { mutableStateOf(false) }
     if (showQueue) {
@@ -220,6 +228,13 @@ fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SleepTimerAction()
+                    IconButton(onClick = onToggleFavorite) {
+                        Icon(
+                            if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Quitar de favoritas" else "Agregar a favoritas",
+                            tint = if (isFavorite) colors.primary else LocalContentColor.current,
+                        )
+                    }
                     IconButton(onClick = onOpenEqualizer) {
                         Icon(Icons.Default.Equalizer, contentDescription = "Ecualizador")
                     }

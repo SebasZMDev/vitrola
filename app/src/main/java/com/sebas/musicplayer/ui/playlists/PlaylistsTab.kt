@@ -22,6 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.AssistChip
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -51,7 +56,11 @@ import com.sebas.musicplayer.ui.components.SongArtwork
 
 /** Pestaña "Playlists" de HomeScreen. Sin Scaffold: solo el contenido. */
 @Composable
-fun PlaylistsTab(onPlaylistClick: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun PlaylistsTab(
+    onPlaylistClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    onSmartListClick: (String) -> Unit = {},
+) {
     val viewModel: PlaylistsViewModel = viewModel(factory = PlaylistsViewModel.Factory)
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val covers by viewModel.covers.collectAsStateWithLifecycle()
@@ -64,6 +73,7 @@ fun PlaylistsTab(onPlaylistClick: (Long) -> Unit, modifier: Modifier = Modifier)
         covers = covers,
         onNewPlaylist = { showCreate = true },
         onPlaylistClick = onPlaylistClick,
+        onSmartListClick = onSmartListClick,
         onRename = { renaming = it },
         onDelete = { deleting = it },
         modifier = modifier,
@@ -101,23 +111,27 @@ private fun PlaylistsContent(
     covers: Map<Long, List<Uri>>,
     onNewPlaylist: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
+    onSmartListClick: (String) -> Unit,
     onRename: (Playlist) -> Unit,
     onDelete: (Playlist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (playlists.isEmpty()) {
-        EmptyState(
-            icon = Icons.AutoMirrored.Filled.QueueMusic,
-            title = "Aún no tienes playlists",
-            message = "Crea una y agrégale canciones desde el menú ⋮ de cualquier canción.",
-            modifier = modifier,
-            action = {
-                Button(onClick = onNewPlaylist) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Crear playlist", Modifier.padding(start = 8.dp))
-                }
-            },
-        )
+        Column(modifier.fillMaxSize()) {
+            SmartListChips(onSmartListClick, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp))
+            EmptyState(
+                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                title = "Aún no tienes playlists",
+                message = "Crea una y agrégale canciones desde el menú ⋮ de cualquier canción.",
+                modifier = Modifier.weight(1f),
+                action = {
+                    Button(onClick = onNewPlaylist) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text("Crear playlist", Modifier.padding(start = 8.dp))
+                    }
+                },
+            )
+        }
         return
     }
     // Cuadrícula como la de Álbumes: tarjetas cuadradas grandes, 2 por fila en un celular.
@@ -128,6 +142,9 @@ private fun PlaylistsContent(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item(key = "smart", span = { GridItemSpan(maxLineSpan) }, contentType = "smart") {
+            SmartListChips(onSmartListClick)
+        }
         item(key = "new", contentType = "new") { NewPlaylistCard(onNewPlaylist) }
         items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
             PlaylistCard(
@@ -136,6 +153,24 @@ private fun PlaylistsContent(
                 onClick = { onPlaylistClick(playlist.id) },
                 onRename = { onRename(playlist) },
                 onDelete = { onDelete(playlist) },
+            )
+        }
+    }
+}
+
+/** Accesos a las listas automáticas: Favoritas, Recientes y Más escuchadas. */
+@Composable
+private fun SmartListChips(onClick: (String) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            Triple("favorites", "Favoritas", Icons.Default.Favorite),
+            Triple("recent", "Recientes", Icons.Default.History),
+            Triple("top", "Más escuchadas", Icons.Default.TrendingUp),
+        ).forEach { (route, label, icon) ->
+            AssistChip(
+                onClick = { onClick(route) },
+                label = { Text(label, maxLines = 1) },
+                leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
             )
         }
     }
@@ -272,6 +307,7 @@ private fun PlaylistsContentPreview() {
             covers = emptyMap(),
             onNewPlaylist = {},
             onPlaylistClick = {},
+            onSmartListClick = {},
             onRename = {},
             onDelete = {},
         )
@@ -287,6 +323,7 @@ private fun PlaylistsEmptyPreview() {
             covers = emptyMap(),
             onNewPlaylist = {},
             onPlaylistClick = {},
+            onSmartListClick = {},
             onRename = {},
             onDelete = {},
         )

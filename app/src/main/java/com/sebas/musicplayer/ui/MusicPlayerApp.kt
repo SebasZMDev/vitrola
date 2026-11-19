@@ -59,6 +59,7 @@ import com.sebas.musicplayer.ui.player.PlayerBar
 import com.sebas.musicplayer.ui.player.PlayerBarViewModel
 import com.sebas.musicplayer.ui.playlists.PlaylistDetailRoute
 import com.sebas.musicplayer.ui.search.SearchRoute
+import com.sebas.musicplayer.ui.smartlists.SmartListRoute
 import com.sebas.musicplayer.ui.theme.MusicPlayerTheme
 
 private object Routes {
@@ -70,6 +71,9 @@ private object Routes {
     const val PLAYLIST = "playlist/{playlistId}"
     const val EQUALIZER = "equalizer"
     const val SETTINGS = "settings"
+    const val SMART_LIST = "smart/{kind}"
+
+    fun smartList(kind: String) = "smart/$kind"
 
     fun album(id: Long) = "album/$id"
     fun artist(name: String) = "artist/${Uri.encode(name)}"
@@ -175,7 +179,11 @@ private fun AppNavHost(navController: NavHostController) {
                 onAlbumClick = openAlbum,
                 onArtistClick = openArtist,
                 onPlaylistClick = { navController.navigate(Routes.playlist(it)) },
+                onSmartListClick = { navController.navigate(Routes.smartList(it)) { launchSingleTop = true } },
             )
+        }
+        pushScreen(Routes.SMART_LIST, navArgument("kind") { type = NavType.StringType }) { args ->
+            SmartListRoute(kindRoute = args.getString("kind"), onBack = back)
         }
         pushScreen(Routes.SEARCH) {
             SearchRoute(onBack = back, onAlbumClick = openAlbum, onArtistClick = openArtist)

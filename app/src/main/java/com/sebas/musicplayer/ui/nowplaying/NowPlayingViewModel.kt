@@ -10,6 +10,9 @@ import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.data.settings.PlayerAppearance
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
+import com.sebas.musicplayer.data.stats.SongStatsRepository
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -19,9 +22,23 @@ import kotlinx.coroutines.flow.stateIn
 class NowPlayingViewModel(
     private val playerController: PlayerController,
     settings: AppSettings,
+    private val stats: SongStatsRepository,
 ) : ViewModel() {
 
     val playerState: StateFlow<PlayerState> = playerController.state
+
+    /** Si la canción que suena está en favoritas. */
+    val isFavorite: StateFlow<Boolean> = combine(
+        playerController.state.map { it.currentSong?.id }.distinctUntilChanged(),
+        stats.favoriteIds,
+    ) { id, favorites -> id != null && id in favorites }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun toggleFavorite() {
+        val id = playerController.state.value.currentSong?.id ?: return
+        val make = !isFavorite.value
+        viewModelScope.launch { stats.setFavorite(id, make) }
+    }
 
     /** Estilo, fondo y opciones del vinilo elegidos en Configuración. */
     val appearance: StateFlow<PlayerAppearance> = settings.state
@@ -44,7 +61,7 @@ class NowPlayingViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                NowPlayingViewModel(app.container.playerController, app.container.settings)
+                NowPlayingViewModel(app.container.playerController, app.container.settings, app.container.statsRepository)
             }
         }
     }
