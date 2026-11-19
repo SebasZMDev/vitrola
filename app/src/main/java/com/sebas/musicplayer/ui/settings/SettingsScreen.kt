@@ -69,7 +69,7 @@ private val durationOptions = listOf(
 )
 
 @Composable
-fun SettingsRoute(onBack: () -> Unit) {
+fun SettingsRoute(onBack: () -> Unit, onOpenDuplicates: () -> Unit = {}) {
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
@@ -85,6 +85,7 @@ fun SettingsRoute(onBack: () -> Unit) {
         state = state,
         folders = folders,
         versionName = viewModel.versionName,
+        onOpenDuplicates = onOpenDuplicates,
         onExportBackup = {
             val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             exportLauncher.launch("vitrola-respaldo-$day.json")
@@ -119,6 +120,7 @@ internal fun SettingsScreen(
     onFolderExcluded: (String, Boolean) -> Unit,
     onExportBackup: () -> Unit = {},
     onImportBackup: () -> Unit = {},
+    onOpenDuplicates: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -272,6 +274,18 @@ internal fun SettingsScreen(
                 }
                 else -> items(folders, key = { it.path }) { folder ->
                     FolderRow(folder, state, onFolderExcluded)
+                }
+            }
+
+            item { SectionTitle("Limpieza") }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Encuentra canciones repetidas (mismo título y artista, duración casi igual) y elimina las sobrantes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = onOpenDuplicates, modifier = Modifier.fillMaxWidth()) { Text("Buscar duplicadas") }
                 }
             }
 

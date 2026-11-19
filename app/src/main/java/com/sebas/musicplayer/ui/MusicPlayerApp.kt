@@ -60,6 +60,7 @@ import com.sebas.musicplayer.ui.player.PlayerBarViewModel
 import com.sebas.musicplayer.ui.playlists.PlaylistDetailRoute
 import com.sebas.musicplayer.ui.search.SearchRoute
 import com.sebas.musicplayer.ui.smartlists.SmartListRoute
+import com.sebas.musicplayer.ui.duplicates.DuplicatesRoute
 import com.sebas.musicplayer.ui.theme.MusicPlayerTheme
 
 private object Routes {
@@ -72,6 +73,7 @@ private object Routes {
     const val EQUALIZER = "equalizer"
     const val SETTINGS = "settings"
     const val SMART_LIST = "smart/{kind}"
+    const val DUPLICATES = "duplicates"
 
     fun smartList(kind: String) = "smart/$kind"
 
@@ -217,7 +219,13 @@ private fun AppNavHost(navController: NavHostController) {
             EqualizerRoute(onBack = back)
         }
         pushScreen(Routes.SETTINGS) {
-            SettingsRoute(onBack = back)
+            SettingsRoute(
+                onBack = back,
+                onOpenDuplicates = { navController.navigate(Routes.DUPLICATES) { launchSingleTop = true } },
+            )
+        }
+        pushScreen(Routes.DUPLICATES) {
+            DuplicatesRoute(onBack = back)
         }
     }
 }
