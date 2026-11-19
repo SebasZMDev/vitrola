@@ -57,6 +57,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -98,11 +99,16 @@ fun NowPlayingRoute(
     onOpenEqualizer: () -> Unit,
     viewModel: NowPlayingViewModel = viewModel(factory = NowPlayingViewModel.Factory),
 ) {
-    val state by viewModel.playerState.collectAsStateWithLifecycle()
+    val liveState = viewModel.playerState.collectAsStateWithLifecycle()
+    // Sin la posición, el estado solo cambia al cambiar de canción, play/pausa, cola, etc.:
+    // la pantalla deja de recomponerse cada 500 ms. La posición viaja aparte, como lambda.
+    val state by remember { derivedStateOf { liveState.value.copy(positionMs = 0L) } }
+    val positionMs = remember { { liveState.value.positionMs } }
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
     NowPlayingScreen(
         state = state,
+        positionMs = positionMs,
         appearance = appearance,
         isFavorite = isFavorite,
         onToggleFavorite = viewModel::toggleFavorite,
@@ -138,6 +144,7 @@ fun NowPlayingScreen(
     onClearQueue: () -> Unit,
     onMoveQueueItem: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
+    positionMs: () -> Long = { state.positionMs },
     onOpenEqualizer: () -> Unit = {},
     appearance: PlayerAppearance = PlayerAppearance(),
     isFavorite: Boolean = false,
@@ -195,7 +202,7 @@ fun NowPlayingScreen(
                         appearance = appearance,
                         artworkUri = song.artworkUri,
                         isPlaying = state.isPlaying,
-                        progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
+                        progress = { if (state.durationMs > 0) positionMs().toFloat() / state.durationMs else 0f },
                         onNext = onNext,
                         onPrevious = onPrevious,
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 16.dp),
@@ -236,7 +243,7 @@ fun NowPlayingScreen(
                     )
                     Spacer(Modifier.height(10.dp))
                     ProgressSection(
-                        positionMs = state.positionMs,
+                        positionMsProvider = positionMs,
                         durationMs = state.durationMs,
                         onSeekTo = onSeekTo,
                     )
@@ -343,7 +350,7 @@ private fun Artwork(
     appearance: PlayerAppearance,
     artworkUri: Uri?,
     isPlaying: Boolean,
-    progress: Float,
+    progress: () -> Float,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     modifier: Modifier = Modifier,
@@ -393,7 +400,7 @@ private fun Artwork(
                 style = style,
                 artworkUri = artworkUri,
                 isPlaying = isPlaying,
-                progress = progress,
+                progress = progress(), // solo se lee en los estilos con escena (tocadiscos, cassette, radio)
                 look = appearance.look,
                 modifier = Modifier.fillMaxSize().then(swipe),
             )
@@ -415,11 +422,13 @@ private fun Artwork(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProgressSection(
-    positionMs: Long,
+    positionMsProvider: () -> Long,
     durationMs: Long,
     onSeekTo: (Long) -> Unit,
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
+    // La posición cambia cada 500 ms: se lee aquí (no más arriba) para que solo esta barra se recomponga.
+    val positionMs = positionMsProvider()
     val enabled = durationMs > 0
     val fraction = dragFraction
         ?: if (enabled) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f

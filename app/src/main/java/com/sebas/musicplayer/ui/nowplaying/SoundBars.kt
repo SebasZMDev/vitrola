@@ -20,6 +20,9 @@ import kotlin.math.sin
 
 private const val BAR_COUNT = 32
 
+/** 30 cuadros/s; se resta un poco para no perder un fotograma por redondeo en pantallas de 60 Hz. */
+private const val MIN_FRAME_NANOS = 30_000_000L
+
 /**
  * Barras tipo ecualizador, ADORNO: se mueven con el compás de la canción en curso pero NO leen el
  * audio real (eso exigiría el permiso de micrófono). Cada canción tiene su propio "baile" (fase por
@@ -43,6 +46,8 @@ fun SoundBars(
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
+            // Tope de ~30 cuadros/s: en pantallas de 90/120 Hz saltamos fotogramas (a la vista es igual).
+            if (now - last < MIN_FRAME_NANOS) continue
             val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.1f)
             last = now
             e += (target - e) * (1f - exp(-5f * dt))
