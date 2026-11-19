@@ -10,6 +10,7 @@ data class PlaylistWithCount(
     val id: Long,
     val name: String,
     val songCount: Int,
+    val coverPath: String? = null,
 )
 
 data class PlaylistSongRef(val playlistId: Long, val songId: Long)
@@ -18,7 +19,7 @@ data class PlaylistSongRef(val playlistId: Long, val songId: Long)
 abstract class PlaylistDao {
     @Query(
         """
-        SELECT p.id AS id, p.name AS name, COUNT(s.id) AS songCount
+        SELECT p.id AS id, p.name AS name, COUNT(s.id) AS songCount, p.coverPath AS coverPath
         FROM playlists p LEFT JOIN playlist_songs s ON s.playlistId = p.id
         GROUP BY p.id
         ORDER BY p.name COLLATE NOCASE
@@ -28,7 +29,7 @@ abstract class PlaylistDao {
 
     @Query(
         """
-        SELECT p.id AS id, p.name AS name, COUNT(s.id) AS songCount
+        SELECT p.id AS id, p.name AS name, COUNT(s.id) AS songCount, p.coverPath AS coverPath
         FROM playlists p LEFT JOIN playlist_songs s ON s.playlistId = p.id
         WHERE p.id = :playlistId
         GROUP BY p.id
@@ -54,6 +55,12 @@ abstract class PlaylistDao {
 
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     abstract suspend fun delete(playlistId: Long)
+
+    @Query("UPDATE playlists SET coverPath = :path WHERE id = :playlistId")
+    abstract suspend fun setCoverPath(playlistId: Long, path: String?)
+
+    @Query("SELECT coverPath FROM playlists WHERE id = :playlistId")
+    abstract suspend fun getCoverPath(playlistId: Long): String?
 
     @Query("SELECT MAX(position) FROM playlist_songs WHERE playlistId = :playlistId")
     protected abstract suspend fun maxPosition(playlistId: Long): Int?

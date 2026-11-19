@@ -8,4 +8,6 @@ data class Playlist(
     val id: Long,
     val name: String,
     val songCount: Int,
+    /** Portada elegida por el usuario (ruta de un archivo local); null = collage de carátulas. */
+    val coverPath: String? = null,
 )

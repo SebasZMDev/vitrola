@@ -1,5 +1,6 @@
 package com.sebas.musicplayer.ui.playlists
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -64,6 +65,16 @@ class PlaylistDetailViewModel(
     fun play(songs: List<Song>, index: Int) = playerController.playQueue(songs, index)
 
     fun playShuffled(songs: List<Song>) = playerController.playQueue(songs.shuffled(), 0)
+
+    /** Pone [source] (imagen de la galería o carátula de una canción) como portada; [onDone] dice si funcionó. */
+    fun setCover(source: Uri, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(repository.setCover(playlistId, source)) }
+    }
+
+    /** Quita la portada elegida y vuelve al collage de carátulas. */
+    fun clearCover() {
+        viewModelScope.launch { repository.setCover(playlistId, null) }
+    }
 
     fun removeAt(position: Int) {
         viewModelScope.launch { repository.removeAt(playlistId, position) }

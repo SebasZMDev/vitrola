@@ -17,7 +17,7 @@ import com.sebas.musicplayer.data.stats.SongStatsDao
         PlaylistEntity::class, PlaylistSongEntity::class, SongOverrideEntity::class,
         FavoriteEntity::class, PlayStatEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -47,12 +47,19 @@ abstract class MusicDatabase : RoomDatabase() {
             }
         }
 
+        /** v4: portada personalizada de playlist (ruta del archivo). */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `coverPath` TEXT")
+            }
+        }
+
         @Volatile
         private var instance: MusicDatabase? = null
 
         fun get(context: Context): MusicDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MusicDatabase::class.java, "music.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
                 .also { instance = it }
         }

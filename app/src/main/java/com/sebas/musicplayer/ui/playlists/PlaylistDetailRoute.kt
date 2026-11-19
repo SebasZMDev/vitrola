@@ -1,6 +1,12 @@
 package com.sebas.musicplayer.ui.playlists
 
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +69,16 @@ fun PlaylistDetailRoute(playlistId: Long, onBack: () -> Unit) {
     val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
     var showRename by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
+    var showCover by remember { mutableStateOf(false) }
+    var pickingSongCover by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val onCoverResult: (Boolean) -> Unit = { ok ->
+        Toast.makeText(context, if (ok) "Portada actualizada" else "No se pudo usar esa imagen", Toast.LENGTH_SHORT).show()
+    }
+    // Selector de fotos del sistema: no pide permisos.
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) viewModel.setCover(uri, onCoverResult)
+    }
 
     val missing = state.loaded && state.playlist == null
     LaunchedEffect(missing) { if (missing) onBack() }
@@ -72,6 +88,7 @@ fun PlaylistDetailRoute(playlistId: Long, onBack: () -> Unit) {
         currentSongId = currentSongId,
         onBack = onBack,
         onRename = { showRename = true },
+        onChangeCover = { showCover = true },
         onDelete = { showDelete = true },
         onPlay = { viewModel.play(state.songs, 0) },
         onShuffle = { viewModel.playShuffled(state.songs) },
@@ -80,6 +97,26 @@ fun PlaylistDetailRoute(playlistId: Long, onBack: () -> Unit) {
     )
 
     val playlist = state.playlist
+    if (showCover && playlist != null) {
+        PlaylistCoverDialog(
+            hasCustomCover = playlist.coverPath != null,
+            canUseSong = state.songs.any { it.artworkUri != null },
+            onGallery = {
+                showCover = false
+                galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFromSong = { showCover = false; pickingSongCover = true },
+            onRemove = { showCover = false; viewModel.clearCover() },
+            onDismiss = { showCover = false },
+        )
+    }
+    if (pickingSongCover) {
+        PickSongCoverDialog(
+            songs = state.songs,
+            onPick = { uri -> pickingSongCover = false; viewModel.setCover(uri, onCoverResult) },
+            onDismiss = { pickingSongCover = false },
+        )
+    }
     if (showRename && playlist != null) {
         PlaylistNameDialog(
             title = "Renombrar playlist",
@@ -105,6 +142,7 @@ private fun PlaylistDetailContent(
     currentSongId: Long?,
     onBack: () -> Unit,
     onRename: () -> Unit,
+    onChangeCover: () -> Unit,
     onDelete: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
@@ -132,6 +170,7 @@ private fun PlaylistDetailContent(
                         }
                         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                             DropdownMenuItem(text = { Text("Renombrar") }, onClick = { menuExpanded = false; onRename() })
+                            DropdownMenuItem(text = { Text("Cambiar portada") }, onClick = { menuExpanded = false; onChangeCover() })
                             DropdownMenuItem(text = { Text("Eliminar") }, onClick = { menuExpanded = false; onDelete() })
                         }
                     }
@@ -146,7 +185,12 @@ private fun PlaylistDetailContent(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    PlaylistTile(size = 180.dp, cornerRadius = 20.dp, artworks = coverArtworks(state.songs.take(12)))
+                    val customCover = state.playlist?.coverPath
+                    PlaylistTile(
+                        size = 180.dp,
+                        cornerRadius = 20.dp,
+                        artworks = if (customCover != null) listOf(Uri.fromFile(File(customCover))) else coverArtworks(state.songs.take(12)),
+                    )
                     Text(
                         state.playlist?.name.orEmpty(),
                         style = MaterialTheme.typography.headlineSmall,
@@ -213,7 +257,7 @@ private fun PlaylistDetailPreview() {
                 entries = listOf(PlaylistEntry(0, previewSong(1, "Canción uno")), PlaylistEntry(2, previewSong(2, "Canción dos"))),
             ),
             currentSongId = 1,
-            onBack = {}, onRename = {}, onDelete = {}, onPlay = {}, onShuffle = {}, onSongClick = {}, onRemove = {},
+            onBack = {}, onRename = {}, onChangeCover = {}, onDelete = {}, onPlay = {}, onShuffle = {}, onSongClick = {}, onRemove = {},
         )
     }
 }
@@ -225,7 +269,7 @@ private fun PlaylistDetailEmptyPreview() {
         PlaylistDetailContent(
             state = PlaylistDetailState(loaded = true, playlist = Playlist(1, "Vacía", 0)),
             currentSongId = null,
-            onBack = {}, onRename = {}, onDelete = {}, onPlay = {}, onShuffle = {}, onSongClick = {}, onRemove = {},
+            onBack = {}, onRename = {}, onChangeCover = {}, onDelete = {}, onPlay = {}, onShuffle = {}, onSongClick = {}, onRemove = {},
         )
     }
 }

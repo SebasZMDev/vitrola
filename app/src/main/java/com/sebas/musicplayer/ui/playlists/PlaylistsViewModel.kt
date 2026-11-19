@@ -2,6 +2,7 @@ package com.sebas.musicplayer.ui.playlists
 
 import android.app.Application
 import android.net.Uri
+import java.io.File
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -29,9 +30,15 @@ class PlaylistsViewModel(
 
     private val songsById = MutableStateFlow<Map<Long, Song>>(emptyMap())
 
-    /** Hasta 4 carátulas distintas por playlist, para el collage. */
-    val covers: StateFlow<Map<Long, List<Uri>>> = combine(repository.observeCoverSongIds(), songsById) { refs, songs ->
-        refs.mapValues { (_, ids) -> coverArtworks(ids.mapNotNull { songs[it] }) }
+    /** Hasta 4 carátulas distintas por playlist (collage); si el usuario eligió una portada, solo esa. */
+    val covers: StateFlow<Map<Long, List<Uri>>> = combine(
+        repository.observeCoverSongIds(),
+        songsById,
+        repository.observePlaylists(),
+    ) { refs, songs, playlists ->
+        val collage = refs.mapValues { (_, ids) -> coverArtworks(ids.mapNotNull { songs[it] }) }
+        val custom = playlists.mapNotNull { p -> p.coverPath?.let { p.id to listOf(Uri.fromFile(File(it))) } }.toMap()
+        collage + custom
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     init {

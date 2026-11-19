@@ -27,6 +27,13 @@ interface PlaylistRepository {
     suspend fun rename(playlistId: Long, name: String)
     suspend fun delete(playlistId: Long)
 
+    /**
+     * Pone como portada la imagen de [source] (galería o carátula de una canción), recortada a cuadrado y
+     * copiada a un archivo propio de la app. Con null quita la portada y vuelve al collage.
+     * Devuelve false si la imagen no se pudo leer.
+     */
+    suspend fun setCover(playlistId: Long, source: android.net.Uri?): Boolean
+
     /** Agrega al final, en el orden dado. */
     suspend fun addSongs(playlistId: Long, songIds: List<Long>)
 
