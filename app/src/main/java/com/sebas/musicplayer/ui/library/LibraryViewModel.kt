@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
+import com.sebas.musicplayer.data.library.OverridingSongRepository
+import com.sebas.musicplayer.data.library.SongEdit
 import com.sebas.musicplayer.data.library.SongRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.data.settings.SongSort
 import com.sebas.musicplayer.data.settings.SongSortField
@@ -38,6 +41,8 @@ class LibraryViewModel(
     private val playerController: PlayerController,
     private val settings: AppSettings,
     deletions: Flow<Set<Long>>,
+    private val editor: OverridingSongRepository,
+    private val edits: MutableSharedFlow<Unit>,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -72,6 +77,10 @@ class LibraryViewModel(
                 _selected.update { it - ids }
                 if (loaded) publish()
             }
+        }
+        // Metadatos corregidos desde cualquier pantalla: recarga sin mostrar el spinner de carga.
+        viewModelScope.launch {
+            edits.collect { if (loaded) load() }
         }
         // Si cambian carpetas excluidas, WhatsApp o la duración mínima, se vuelve a cargar la lista.
         viewModelScope.launch {
@@ -141,6 +150,50 @@ class LibraryViewModel(
         return (_uiState.value as? LibraryUiState.Success)?.songs?.filter { it.id in ids }.orEmpty()
     }
 
+    /** Artista y álbum comunes a toda la selección, para rellenar el diálogo ("" si difieren). */
+    fun commonMetadata(): Pair<String, String> {
+        val songs = selectedSongs()
+        val artist = songs.map { it.artist }.distinct().singleOrNull().orEmpty()
+        val album = songs.map { it.album }.distinct().singleOrNull().orEmpty()
+        return artist to album
+    }
+
+    /** Aplica artista y/o álbum a toda la selección; un campo en blanco no se toca. */
+    fun applyMetadata(artist: String, album: String) {
+        val a = artist.trim().ifEmpty { null }
+        val b = album.trim().ifEmpty { null }
+        if (a == null && b == null) return
+        saveEdits(selectedSongs().map { SongEdit(it.id, artist = a, album = b) })
+    }
+
+    /** Descargas de YouTube: separa "Artista - Título" del nombre de cada canción. Las que no tienen " - " se dejan igual. */
+    fun splitArtistFromTitle() {
+        saveEdits(selectedSongs().mapNotNull { song ->
+            val parts = song.title.split(" - ", limit = 2)
+            val artist = parts.getOrNull(0)?.trim().orEmpty()
+            val title = parts.getOrNull(1)?.trim().orEmpty()
+            if (artist.isEmpty() || title.isEmpty()) null else SongEdit(song.id, title = title, artist = artist)
+        })
+    }
+
+    /** Quita las correcciones y vuelve a los metadatos del archivo. */
+    fun restoreOriginalMetadata() {
+        val ids = selectedSongs().map { it.id }
+        viewModelScope.launch {
+            editor.clearEdits(ids)
+            clearSelection()
+            edits.emit(Unit)
+        }
+    }
+
+    private fun saveEdits(list: List<SongEdit>) {
+        viewModelScope.launch {
+            editor.applyEdits(list)
+            clearSelection()
+            edits.emit(Unit)
+        }
+    }
+
     fun playNextSelected() {
         // En orden inverso para que queden en el mismo orden de la lista.
         selectedSongs().asReversed().forEach(playerController::playNext)
@@ -171,6 +224,8 @@ class LibraryViewModel(
                     app.container.playerController,
                     app.container.settings,
                     app.container.songDeletions,
+                    app.container.songEditor,
+                    app.container.songEdits,
                 )
             }
         }

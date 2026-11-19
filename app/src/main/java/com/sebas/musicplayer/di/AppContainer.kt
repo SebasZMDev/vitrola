@@ -5,6 +5,8 @@ import com.sebas.musicplayer.data.library.CachingSongRepository
 import com.sebas.musicplayer.data.library.FolderRepository
 import com.sebas.musicplayer.data.library.MediaStoreFolderRepository
 import com.sebas.musicplayer.data.library.MediaStoreSongRepository
+import com.sebas.musicplayer.data.library.OverridingSongRepository
+import com.sebas.musicplayer.data.playlist.db.MusicDatabase
 import com.sebas.musicplayer.data.library.SongRepository
 import com.sebas.musicplayer.data.playlist.PlaylistRepository
 import com.sebas.musicplayer.data.playlist.RoomPlaylistRepository
@@ -26,14 +28,26 @@ class AppContainer(context: Context) {
 
     val settings: AppSettings by lazy { AppSettings(appContext) }
 
-    val songRepository: SongRepository by lazy {
+    /** Repositorio completo: MediaStore + caché + metadatos corregidos por el usuario. */
+    private val overridingRepository: OverridingSongRepository by lazy {
         val resolver = appContext.contentResolver
-        CachingSongRepository(
-            delegate = MediaStoreSongRepository(resolver, settings),
-            contentResolver = resolver,
-            settingsVersion = { settings.current.libraryVersion },
+        OverridingSongRepository(
+            delegate = CachingSongRepository(
+                delegate = MediaStoreSongRepository(resolver, settings),
+                contentResolver = resolver,
+                settingsVersion = { settings.current.libraryVersion },
+            ),
+            dao = MusicDatabase.get(appContext).songOverrideDao(),
         )
     }
+
+    val songRepository: SongRepository get() = overridingRepository
+
+    /** Edición de metadatos (artista, álbum, título) sin tocar los archivos. */
+    val songEditor: OverridingSongRepository get() = overridingRepository
+
+    /** Avisa que se cambiaron metadatos; las listas abiertas se recargan. */
+    val songEdits = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
 
     /** Ids de canciones eliminadas del teléfono; las listas abiertas las quitan al instante. */
     val songDeletions = MutableSharedFlow<Set<Long>>(extraBufferCapacity = 8)

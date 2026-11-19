@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.SkipNext
@@ -76,6 +77,7 @@ fun SongsTab(modifier: Modifier = Modifier) {
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val deleteSongs = LocalDeleteSongs.current
     var addingToPlaylist by remember { mutableStateOf(false) }
+    var editingMetadata by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.loadSongs() }
     BackHandler(enabled = selected.isNotEmpty()) { viewModel.clearSelection() }
@@ -84,6 +86,19 @@ fun SongsTab(modifier: Modifier = Modifier) {
         AddToPlaylistDialog(
             songIds = viewModel.selectedSongs().map { it.id },
             onDismiss = { addingToPlaylist = false; viewModel.clearSelection() },
+        )
+    }
+
+    if (editingMetadata) {
+        val (artist, album) = viewModel.commonMetadata()
+        EditMetadataDialog(
+            count = selected.size,
+            initialArtist = artist,
+            initialAlbum = album,
+            onApply = { a, b -> editingMetadata = false; viewModel.applyMetadata(a, b) },
+            onSplitFromTitle = { editingMetadata = false; viewModel.splitArtistFromTitle() },
+            onRestore = { editingMetadata = false; viewModel.restoreOriginalMetadata() },
+            onDismiss = { editingMetadata = false },
         )
     }
 
@@ -98,6 +113,7 @@ fun SongsTab(modifier: Modifier = Modifier) {
         onPlayNext = viewModel::playNextSelected,
         onAddToQueue = viewModel::addSelectedToQueue,
         onAddToPlaylist = { addingToPlaylist = true },
+        onEditMetadata = { editingMetadata = true },
         onDelete = { deleteSongs(viewModel.selectedSongs()) },
         uiState = uiState,
         isRefreshing = isRefreshing,
@@ -122,6 +138,7 @@ private fun SongsContent(
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onEditMetadata: () -> Unit,
     onDelete: () -> Unit,
     uiState: LibraryUiState,
     isRefreshing: Boolean,
@@ -172,6 +189,7 @@ private fun SongsContent(
                         onPlayNext = onPlayNext,
                         onAddToQueue = onAddToQueue,
                         onAddToPlaylist = onAddToPlaylist,
+                        onEditMetadata = onEditMetadata,
                         onDelete = onDelete,
                     )
                 }
@@ -255,6 +273,7 @@ private fun SelectionBar(
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onEditMetadata: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
@@ -286,6 +305,11 @@ private fun SelectionBar(
                         leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
                         onClick = { menu = false; onAddToPlaylist() },
                     )
+                    DropdownMenuItem(
+                        text = { Text("Editar artista / álbum") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                        onClick = { menu = false; onEditMetadata() },
+                    )
                 }
             }
         }
@@ -299,6 +323,6 @@ private fun SongsContentPreview() {
         Song(it.toLong(), Uri.EMPTY, "Canción $it", "Artista", "Álbum", 1L, 200_000L, null)
     }
     MaterialTheme {
-        SongsContent(SongSort(), emptySet(), {}, {}, {}, {}, {}, {}, {}, {}, {}, LibraryUiState.Success(songs), false, 2L, {}, {}, {})
+        SongsContent(SongSort(), emptySet(), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, LibraryUiState.Success(songs), false, 2L, {}, {}, {})
     }
 }
