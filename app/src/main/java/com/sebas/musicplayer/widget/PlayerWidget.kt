@@ -37,21 +37,33 @@ class PlayerWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         // Al poner el widget (o reiniciar el teléfono) mostramos lo último que sabemos.
-        update(context, last)
+        update(context, last, force = true)
     }
 
     companion object {
         @Volatile private var last: WidgetState? = null
         private val io = Executors.newSingleThreadExecutor()
 
-        fun update(context: Context, state: WidgetState?) {
+        /** Última portada decodificada (solo la usa el hilo [io]): pausar/reanudar no vuelve a leer el archivo. */
+        private var cachedCoverUri: Uri? = null
+        private var cachedCover: Bitmap? = null
+
+        /** [force]: redibujar aunque el estado sea igual (el sistema acaba de poner o restaurar el widget). */
+        fun update(context: Context, state: WidgetState?, force: Boolean = false) {
+            // El servicio avisa en cada evento del reproductor; si nada visible cambió, no hacemos nada.
+            if (!force && state == last) return
             val app = context.applicationContext
             last = state
             val manager = AppWidgetManager.getInstance(app)
             val ids = manager.getAppWidgetIds(ComponentName(app, PlayerWidget::class.java))
             if (ids.isEmpty()) return
             io.execute {
-                val cover = state?.artworkUri?.let { loadCover(app, it) }
+                val uri = state?.artworkUri
+                val cover = when {
+                    uri == null -> null
+                    uri == cachedCoverUri -> cachedCover
+                    else -> loadCover(app, uri).also { cachedCoverUri = uri; cachedCover = it }
+                }
                 val views = build(app, state, cover)
                 manager.updateAppWidget(ids, views)
             }

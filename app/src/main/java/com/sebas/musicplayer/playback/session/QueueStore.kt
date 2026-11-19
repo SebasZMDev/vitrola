@@ -27,19 +27,32 @@ data class SavedQueue(
 class QueueStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    /** Huella (ids en orden) de la cola ya escrita en disco; null = aún no escribimos nada. */
+    private var savedSignature: Long? = null
+
     fun save(player: Player) {
-        val songs = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).toSong() }
-        if (songs.isEmpty()) {
+        val count = player.mediaItemCount
+        if (count == 0) {
             prefs.edit().remove(KEY_QUEUE).apply()
+            savedSignature = null
             return
         }
-        // Si algún item no se pudo convertir, los índices cambian: no guardamos una cola inconsistente.
-        if (songs.size != player.mediaItemCount) return
-        val array = JSONArray()
-        songs.forEach { array.put(it.toJson()) }
-        prefs.edit()
-            .putString(KEY_QUEUE, array.toString())
-            .putInt(KEY_INDEX, player.currentMediaItemIndex)
+        // Lo barato primero: una huella de los ids. Si la cola es la misma que ya escribimos
+        // (play/pausa, cambio de canción, modos) solo actualizamos los datos pequeños y nos
+        // saltamos reconstruir y escribir el JSON entero (miles de canciones = decenas de ms).
+        var signature = count.toLong()
+        for (i in 0 until count) signature = signature * 31 + player.getMediaItemAt(i).mediaId.hashCode()
+        val edit = prefs.edit()
+        if (signature != savedSignature) {
+            val songs = (0 until count).mapNotNull { player.getMediaItemAt(it).toSong() }
+            // Si algún item no se pudo convertir, los índices cambian: no guardamos una cola inconsistente.
+            if (songs.size != count) return
+            val array = JSONArray()
+            songs.forEach { array.put(it.toJson()) }
+            edit.putString(KEY_QUEUE, array.toString())
+            savedSignature = signature
+        }
+        edit.putInt(KEY_INDEX, player.currentMediaItemIndex)
             .putLong(KEY_POSITION, player.currentPosition.coerceAtLeast(0L))
             .putBoolean(KEY_SHUFFLE, player.shuffleModeEnabled)
             .putInt(KEY_REPEAT, player.repeatMode)
