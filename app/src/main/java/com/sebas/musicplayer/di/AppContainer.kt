@@ -1,6 +1,7 @@
 package com.sebas.musicplayer.di
 
 import android.content.Context
+import com.sebas.musicplayer.data.backup.BackupManager
 import com.sebas.musicplayer.data.library.CachingSongRepository
 import com.sebas.musicplayer.data.library.FolderRepository
 import com.sebas.musicplayer.data.library.MediaStoreFolderRepository
@@ -60,6 +61,12 @@ class AppContainer(context: Context) {
 
     /** Avisa que se cambiaron metadatos; las listas abiertas se recargan. */
     val songEdits = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+
+    /** Exportar e importar playlists, favoritas, historial y metadatos editados. */
+    val backupManager: BackupManager by lazy {
+        val db = MusicDatabase.get(appContext)
+        BackupManager(overridingRepository, db.songOverrideDao(), db.songStatsDao(), playlistRepository)
+    }
 
     /** Favoritas e historial de reproducción. */
     val statsRepository: SongStatsRepository by lazy {

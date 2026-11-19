@@ -5,7 +5,14 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import android.content.ContentResolver
+import android.net.Uri
 import com.sebas.musicplayer.MusicApp
+import com.sebas.musicplayer.data.backup.BackupJson
+import com.sebas.musicplayer.data.backup.BackupManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.withContext
 import com.sebas.musicplayer.data.library.FolderRepository
 import com.sebas.musicplayer.data.library.MusicFolder
 import com.sebas.musicplayer.data.settings.AppSettings
@@ -24,9 +31,49 @@ class SettingsViewModel(
     private val settings: AppSettings,
     private val folderRepository: FolderRepository,
     val versionName: String,
+    private val backupManager: BackupManager,
+    private val resolver: ContentResolver,
+    private val songEdits: MutableSharedFlow<Unit>,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsState> = settings.state
+
+    /** Guarda el respaldo en el archivo [uri] elegido por el usuario; [onDone] recibe el mensaje a mostrar. */
+    fun exportBackup(uri: Uri, onDone: (String) -> Unit) {
+        viewModelScope.launch {
+            val message = try {
+                val json = BackupJson.encode(backupManager.export())
+                withContext(Dispatchers.IO) {
+                    resolver.openOutputStream(uri, "wt")?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                        ?: error("No se pudo abrir el archivo")
+                }
+                "Respaldo guardado"
+            } catch (e: Exception) {
+                "No se pudo guardar el respaldo: ${e.message}"
+            }
+            onDone(message)
+        }
+    }
+
+    /** Lee el respaldo del archivo [uri] y lo suma a lo que ya hay; no borra nada. */
+    fun importBackup(uri: Uri, onDone: (String) -> Unit) {
+        viewModelScope.launch {
+            val message = try {
+                val text = withContext(Dispatchers.IO) {
+                    resolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                        ?: error("No se pudo abrir el archivo")
+                }
+                val report = backupManager.import(BackupJson.decode(text))
+                songEdits.emit(Unit)
+                report.summary()
+            } catch (e: IllegalArgumentException) {
+                e.message ?: "El archivo no es un respaldo válido"
+            } catch (e: Exception) {
+                "No se pudo importar el respaldo: ${e.message}"
+            }
+            onDone(message)
+        }
+    }
 
     /** null mientras carga. */
     private val _folders = MutableStateFlow<List<MusicFolder>?>(null)
@@ -61,7 +108,14 @@ class SettingsViewModel(
                 val version = runCatching {
                     app.packageManager.getPackageInfo(app.packageName, 0).versionName
                 }.getOrNull() ?: "?"
-                SettingsViewModel(app.container.settings, app.container.folderRepository, version)
+                SettingsViewModel(
+                    app.container.settings,
+                    app.container.folderRepository,
+                    version,
+                    app.container.backupManager,
+                    app.contentResolver,
+                    app.container.songEdits,
+                )
             }
         }
     }

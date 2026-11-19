@@ -14,6 +14,9 @@ class OverridingSongRepository(
     private val dao: SongOverrideDao,
 ) : SongRepository {
 
+    /** Canciones con los metadatos originales del archivo, sin las correcciones del usuario. */
+    suspend fun getOriginalSongs(forceRefresh: Boolean = false): List<Song> = delegate.getSongs(forceRefresh)
+
     override suspend fun getSongs(forceRefresh: Boolean): List<Song> {
         val songs = delegate.getSongs(forceRefresh)
         val overrides = dao.getAll().associateBy { it.songId }

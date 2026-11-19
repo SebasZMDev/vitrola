@@ -36,6 +36,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -65,10 +73,23 @@ fun SettingsRoute(onBack: () -> Unit) {
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) viewModel.exportBackup(uri, toast)
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importBackup(uri, toast)
+    }
     SettingsScreen(
         state = state,
         folders = folders,
         versionName = viewModel.versionName,
+        onExportBackup = {
+            val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            exportLauncher.launch("vitrola-respaldo-$day.json")
+        },
+        onImportBackup = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
         onBack = onBack,
         onThemeMode = viewModel::setThemeMode,
         onOpenPlayerOnTap = viewModel::setOpenPlayerOnTap,
@@ -96,6 +117,8 @@ internal fun SettingsScreen(
     onExcludeWhatsApp: (Boolean) -> Unit,
     onMinDuration: (Int) -> Unit,
     onFolderExcluded: (String, Boolean) -> Unit,
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -249,6 +272,22 @@ internal fun SettingsScreen(
                 }
                 else -> items(folders, key = { it.path }) { folder ->
                     FolderRow(folder, state, onFolderExcluded)
+                }
+            }
+
+            item { SectionTitle("Respaldo") }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Guarda tus playlists, favoritas, historial y metadatos editados en un archivo, " +
+                            "y recupéralos si cambias de teléfono o reinstalas. Importar solo suma, no borra nada.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onExportBackup, modifier = Modifier.weight(1f)) { Text("Exportar") }
+                        OutlinedButton(onClick = onImportBackup, modifier = Modifier.weight(1f)) { Text("Importar") }
+                    }
                 }
             }
 
