@@ -56,6 +56,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -123,6 +126,12 @@ fun NowPlayingRoute(
         onClearQueue = viewModel::clearQueue,
         onMoveQueueItem = viewModel::moveQueueItem,
         onOpenEqualizer = onOpenEqualizer,
+        onCycleSpeed = viewModel::cycleSpeed,
+        lyricsContent = { dismiss ->
+            // Aquí (y no arriba) se observa la letra: con la hoja cerrada no se busca nada.
+            val lyricsUi by viewModel.lyrics.collectAsStateWithLifecycle()
+            LyricsSheet(ui = lyricsUi, positionMs = positionMs, onSeek = viewModel::seekTo, onDismiss = dismiss)
+        },
     )
 }
 
@@ -146,6 +155,8 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
     positionMs: () -> Long = { state.positionMs },
     onOpenEqualizer: () -> Unit = {},
+    onCycleSpeed: () -> Unit = {},
+    lyricsContent: @Composable (onDismiss: () -> Unit) -> Unit = {},
     appearance: PlayerAppearance = PlayerAppearance(),
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
@@ -161,6 +172,9 @@ fun NowPlayingScreen(
             onMove = onMoveQueueItem,
         )
     }
+
+    var showLyrics by remember { mutableStateOf(false) }
+    if (showLyrics) lyricsContent { showLyrics = false }
 
     val song = state.currentSong
     val colors = MaterialTheme.colorScheme
@@ -263,6 +277,18 @@ fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SleepTimerAction()
+                    TextButton(onClick = onCycleSpeed) {
+                        val speed = state.speed
+                        Text(
+                            // 1x, 1,25x, 0,75x: sin ceros de más.
+                            "${speed.toString().removeSuffix(".0").replace('.', ',')}x",
+                            color = if (kotlin.math.abs(speed - 1f) < 0.01f) LocalContentColor.current else colors.secondary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    IconButton(onClick = { showLyrics = true }) {
+                        Icon(Icons.Filled.Lyrics, contentDescription = "Letra")
+                    }
                     IconButton(onClick = onToggleFavorite) {
                         Icon(
                             if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,

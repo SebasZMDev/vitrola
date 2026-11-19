@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
+import com.sebas.musicplayer.data.lyrics.LyricsRepository
 import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.data.settings.PlayerAppearance
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
 import com.sebas.musicplayer.data.stats.SongStatsRepository
@@ -23,9 +27,42 @@ class NowPlayingViewModel(
     private val playerController: PlayerController,
     settings: AppSettings,
     private val stats: SongStatsRepository,
+    lyricsRepository: LyricsRepository,
 ) : ViewModel() {
 
     val playerState: StateFlow<PlayerState> = playerController.state
+
+    /**
+     * Letra de la canción actual. Solo se calcula mientras la hoja de letras está abierta
+     * (WhileSubscribed): con la hoja cerrada no se escanea ninguna carpeta.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val lyrics: StateFlow<LyricsUi> = combine(
+        playerController.state.map { it.currentSong }.distinctUntilChanged { a, b -> a?.id == b?.id },
+        settings.state.map { it.lyricsTreeUri }.distinctUntilChanged(),
+    ) { song, tree -> song to tree }
+        .flatMapLatest { (song, tree) ->
+            flow {
+                when {
+                    tree == null -> emit(LyricsUi.NoFolder)
+                    song == null -> emit(LyricsUi.NotFound)
+                    else -> {
+                        emit(LyricsUi.Loading)
+                        val found = lyricsRepository.find(song)
+                        emit(if (found == null) LyricsUi.NotFound else LyricsUi.Found(found))
+                    }
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LyricsUi.Loading)
+
+    /** Velocidades que recorre el botón: 0,75x -> 1x -> 1,25x -> 1,5x -> 2x -> 0,75x. */
+    fun cycleSpeed() {
+        val steps = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+        val now = playerController.state.value.speed
+        val i = steps.indexOfFirst { kotlin.math.abs(it - now) < 0.01f }
+        playerController.setSpeed(steps[(i + 1) % steps.size])
+    }
 
     /** Si la canción que suena está en favoritas. */
     val isFavorite: StateFlow<Boolean> = combine(
@@ -61,7 +98,12 @@ class NowPlayingViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                NowPlayingViewModel(app.container.playerController, app.container.settings, app.container.statsRepository)
+                NowPlayingViewModel(
+                    app.container.playerController,
+                    app.container.settings,
+                    app.container.statsRepository,
+                    app.container.lyricsRepository,
+                )
             }
         }
     }

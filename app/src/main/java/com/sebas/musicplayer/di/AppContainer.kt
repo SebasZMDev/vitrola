@@ -68,6 +68,11 @@ class AppContainer(context: Context) {
         BackupManager(overridingRepository, db.songOverrideDao(), db.songStatsDao(), playlistRepository)
     }
 
+    /** Letras .lrc desde la carpeta elegida en Configuración. */
+    val lyricsRepository: com.sebas.musicplayer.data.lyrics.LyricsRepository by lazy {
+        com.sebas.musicplayer.data.lyrics.LyricsRepository(appContext, settings)
+    }
+
     /** Favoritas e historial de reproducción. */
     val statsRepository: SongStatsRepository by lazy {
         SongStatsRepository(MusicDatabase.get(appContext).songStatsDao())

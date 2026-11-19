@@ -101,6 +101,17 @@ class SettingsViewModel(
     fun setPlayerBackground(value: PlayerBackground) = settings.setPlayerBackground(value)
     fun updateLook(transform: (PlayerLook) -> PlayerLook) = settings.setLook(transform)
 
+    /** Guarda la carpeta de letras y pide a Android que recuerde el permiso (sobrevive a reinicios). */
+    fun setLyricsFolder(uri: Uri?) {
+        settings.current.lyricsTreeUri?.let { old ->
+            runCatching { resolver.releasePersistableUriPermission(Uri.parse(old), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+        if (uri != null) {
+            runCatching { resolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+        settings.setLyricsTreeUri(uri?.toString())
+    }
+
     companion object {
         val Factory = viewModelFactory {
             initializer {

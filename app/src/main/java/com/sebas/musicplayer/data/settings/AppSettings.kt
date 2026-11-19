@@ -54,6 +54,8 @@ data class SettingsState(
     val playerBackground: PlayerBackground = PlayerBackground.GLOW,
     val look: PlayerLook = PlayerLook(),
     val songSort: SongSort = SongSort(),
+    /** Carpeta (URI de árbol SAF) donde están las letras .lrc; null = sin configurar. */
+    val lyricsTreeUri: String? = null,
     val libraryVersion: Int = 0,
 ) {
     val appearance: PlayerAppearance get() = PlayerAppearance(playerStyle, playerBackground, look)
@@ -93,6 +95,8 @@ class AppSettings(context: Context) {
 
     fun setSongSort(value: SongSort) = update(libraryChanged = false) { it.copy(songSort = value) }
 
+    fun setLyricsTreeUri(value: String?) = update(libraryChanged = false) { it.copy(lyricsTreeUri = value) }
+
     fun setLook(transform: (PlayerLook) -> PlayerLook) = update(libraryChanged = false) { it.copy(look = transform(it.look)) }
 
     private fun update(libraryChanged: Boolean, transform: (SettingsState) -> SettingsState) {
@@ -119,6 +123,7 @@ class AppSettings(context: Context) {
             ?: PlayerStyle.COVER,
         playerBackground = prefs.enumOf(KEY_PLAYER_BG, PlayerBackground.GLOW),
         songSort = SongSort(prefs.enumOf(KEY_SORT_FIELD, SongSortField.TITLE), prefs.getBoolean(KEY_SORT_ASC, true)),
+        lyricsTreeUri = prefs.getString(KEY_LYRICS_TREE, null),
         look = PlayerLook(
             vinylColor = prefs.enumOf(KEY_VINYL_COLOR, VinylColor.BLACK),
             grooves = prefs.getBoolean(KEY_GROOVES, true),
@@ -149,6 +154,7 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_SLEEVE, state.look.sleeve)
             .putString(KEY_SORT_FIELD, state.songSort.field.name)
             .putBoolean(KEY_SORT_ASC, state.songSort.ascending)
+            .putString(KEY_LYRICS_TREE, state.lyricsTreeUri)
             .apply()
     }
 
@@ -168,5 +174,6 @@ class AppSettings(context: Context) {
         const val KEY_SLEEVE = "vinyl_sleeve"
         const val KEY_SORT_FIELD = "song_sort_field"
         const val KEY_SORT_ASC = "song_sort_asc"
+        const val KEY_LYRICS_TREE = "lyrics_tree_uri"
     }
 }

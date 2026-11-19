@@ -130,6 +130,7 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
             repeatMode = player.repeatMode.toRepeatMode(),
             queue = items.mapNotNull { it.toSong() },
             currentIndex = if (items.isEmpty()) -1 else player.currentMediaItemIndex,
+            speed = player.playbackParameters.speed,
         )
     }
 
@@ -171,6 +172,8 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
     override fun next() = withController { it.seekToNext() }
     override fun previous() = withController { it.seekToPrevious() }
     override fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs) }
+
+    override fun setSpeed(speed: Float) = withController { it.setPlaybackSpeed(speed) }
 
     override fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
 

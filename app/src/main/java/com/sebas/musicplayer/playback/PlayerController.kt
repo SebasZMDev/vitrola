@@ -17,6 +17,8 @@ interface PlayerController {
     fun next()
     fun previous()
     fun seekTo(positionMs: Long)
+    /** Velocidad de reproducción (1f = normal). Conserva el tono. */
+    fun setSpeed(speed: Float)
     fun toggleShuffle()
     /** OFF -> ALL -> ONE -> OFF */
     fun cycleRepeatMode()
@@ -45,6 +47,7 @@ data class PlayerState(
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = -1,
+    val speed: Float = 1f,
 )
 
 enum class RepeatMode { OFF, ALL, ONE }

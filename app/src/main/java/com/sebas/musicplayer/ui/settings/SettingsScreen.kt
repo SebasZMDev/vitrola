@@ -81,10 +81,15 @@ fun SettingsRoute(onBack: () -> Unit, onOpenDuplicates: () -> Unit = {}) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importBackup(uri, toast)
     }
+    val lyricsFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.setLyricsFolder(uri)
+    }
     SettingsScreen(
         state = state,
         folders = folders,
         versionName = viewModel.versionName,
+        onPickLyricsFolder = { lyricsFolderLauncher.launch(null) },
+        onClearLyricsFolder = { viewModel.setLyricsFolder(null) },
         onOpenDuplicates = onOpenDuplicates,
         onExportBackup = {
             val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -121,6 +126,8 @@ internal fun SettingsScreen(
     onExportBackup: () -> Unit = {},
     onImportBackup: () -> Unit = {},
     onOpenDuplicates: () -> Unit = {},
+    onPickLyricsFolder: () -> Unit = {},
+    onClearLyricsFolder: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -274,6 +281,30 @@ internal fun SettingsScreen(
                 }
                 else -> items(folders, key = { it.path }) { folder ->
                     FolderRow(folder, state, onFolderExcluded)
+                }
+            }
+
+            item { SectionTitle("Letras") }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Elige la carpeta donde están tus archivos .lrc. Busco uno con el mismo nombre que la canción " +
+                            "(o «Artista - Título.lrc») y la letra se sigue en el reproductor al ritmo de la música.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val chosen = state.lyricsTreeUri?.let { android.net.Uri.parse(it).lastPathSegment?.substringAfterLast(':') }
+                    if (chosen != null) {
+                        Text("Carpeta: $chosen", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onPickLyricsFolder, modifier = Modifier.weight(1f)) {
+                            Text(if (chosen == null) "Elegir carpeta" else "Cambiar")
+                        }
+                        if (chosen != null) {
+                            OutlinedButton(onClick = onClearLyricsFolder, modifier = Modifier.weight(1f)) { Text("Quitar") }
+                        }
+                    }
                 }
             }
 
