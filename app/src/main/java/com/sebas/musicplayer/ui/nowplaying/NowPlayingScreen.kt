@@ -57,6 +57,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
@@ -109,7 +110,20 @@ fun NowPlayingRoute(
     val positionMs = remember { { liveState.value.positionMs } }
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
+    val songGain by viewModel.songGain.collectAsStateWithLifecycle()
     NowPlayingScreen(
+        songGainDb = songGain,
+        volumeContent = { dismiss ->
+            val leveling by viewModel.leveling.collectAsStateWithLifecycle()
+            SongVolumeSheet(
+                songTitle = state.currentSong?.title.orEmpty(),
+                gainDb = songGain,
+                leveling = leveling,
+                onGainChange = viewModel::setSongGain,
+                onLevel = viewModel::levelSong,
+                onDismiss = dismiss,
+            )
+        },
         state = state,
         positionMs = positionMs,
         appearance = appearance,
@@ -157,6 +171,8 @@ fun NowPlayingScreen(
     onOpenEqualizer: () -> Unit = {},
     onCycleSpeed: () -> Unit = {},
     lyricsContent: @Composable (onDismiss: () -> Unit) -> Unit = {},
+    songGainDb: Float = 0f,
+    volumeContent: @Composable (onDismiss: () -> Unit) -> Unit = {},
     appearance: PlayerAppearance = PlayerAppearance(),
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
@@ -175,6 +191,9 @@ fun NowPlayingScreen(
 
     var showLyrics by remember { mutableStateOf(false) }
     if (showLyrics) lyricsContent { showLyrics = false }
+
+    var showVolume by remember { mutableStateOf(false) }
+    if (showVolume) volumeContent { showVolume = false }
 
     val song = state.currentSong
     val colors = MaterialTheme.colorScheme
@@ -284,6 +303,14 @@ fun NowPlayingScreen(
                             "${speed.toString().removeSuffix(".0").replace('.', ',')}x",
                             color = if (kotlin.math.abs(speed - 1f) < 0.01f) LocalContentColor.current else colors.secondary,
                             fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    IconButton(onClick = { showVolume = true }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Volumen de esta canción",
+                            // En latón si la canción tiene un volumen propio.
+                            tint = if (songGainDb != 0f) colors.secondary else LocalContentColor.current,
                         )
                     }
                     IconButton(onClick = { showLyrics = true }) {

@@ -31,6 +31,9 @@ object BackupJson {
                 })
             }
         })
+        put("gains", JSONArray().apply {
+            data.gains.forEach { put(key(it.key).put("gainDb", it.gainDb.toDouble())) }
+        })
     }.toString(2)
 
     /** @throws IllegalArgumentException si el texto no es un respaldo de Vitrola válido. */
@@ -52,6 +55,7 @@ object BackupJson {
                 overrides = root.optJSONArray("overrides").objects().map {
                     BackupOverride(readKey(it), it.optStringOrNull("newTitle"), it.optStringOrNull("newArtist"), it.optStringOrNull("newAlbum"))
                 },
+                gains = root.optJSONArray("gains").objects().map { BackupGain(readKey(it), it.optDouble("gainDb", 0.0).toFloat()) },
             )
         } catch (e: JSONException) {
             throw IllegalArgumentException("El archivo no es un respaldo válido", e)
