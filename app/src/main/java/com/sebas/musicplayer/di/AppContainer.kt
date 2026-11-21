@@ -65,7 +65,7 @@ class AppContainer(context: Context) {
     /** Exportar e importar playlists, favoritas, historial y metadatos editados. */
     val backupManager: BackupManager by lazy {
         val db = MusicDatabase.get(appContext)
-        BackupManager(overridingRepository, db.songOverrideDao(), db.songStatsDao(), playlistRepository)
+        BackupManager(overridingRepository, db.songOverrideDao(), db.songStatsDao(), playlistRepository, songGains)
     }
 
     /** Letras .lrc desde la carpeta elegida en Configuración. */
@@ -104,6 +104,14 @@ class AppContainer(context: Context) {
 
     val playerController: PlayerController by lazy {
         MediaControllerPlayerController(appContext)
+    }
+
+    /** Volumen propio de cada canción (subir o bajar una que suena distinta a las demás). */
+    val songGains: com.sebas.musicplayer.playback.gain.SongGainRepository by lazy {
+        com.sebas.musicplayer.playback.gain.SongGainRepository(
+            MusicDatabase.get(appContext).songGainDao(),
+            com.sebas.musicplayer.playback.gain.LoudnessAnalyzer(appContext),
+        )
     }
 
     val sleepTimer: SleepTimer by lazy { SleepTimerController() }

@@ -14,6 +14,7 @@ fun Song.toKey() = SongKey(title, artist, (durationMs / 1000).toInt())
 data class BackupPlaylist(val name: String, val songs: List<SongKey>)
 data class BackupFavorite(val key: SongKey, val addedAt: Long)
 data class BackupStat(val key: SongKey, val playCount: Int, val lastPlayedAt: Long)
+data class BackupGain(val key: SongKey, val gainDb: Float)
 data class BackupOverride(val key: SongKey, val title: String?, val artist: String?, val album: String?)
 
 data class BackupData(
@@ -22,9 +23,10 @@ data class BackupData(
     val favorites: List<BackupFavorite>,
     val stats: List<BackupStat>,
     val overrides: List<BackupOverride>,
+    val gains: List<BackupGain> = emptyList(),
 ) {
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }
 
@@ -37,10 +39,12 @@ data class ImportReport(
     val overrides: Int,
     /** Canciones del respaldo que no se encontraron en este teléfono. */
     val missingSongs: Int,
+    val gains: Int = 0,
 ) {
     fun summary(): String = buildString {
         append("Importado: ")
         append("$playlistsAdded playlists, $favorites favoritas, $stats con historial, $overrides editadas")
+        if (gains > 0) append(", $gains con volumen propio")
         if (playlistsSkipped > 0) append(". $playlistsSkipped playlists ya existían y se dejaron igual")
         if (missingSongs > 0) append(". $missingSongs canciones no están en este teléfono")
     }

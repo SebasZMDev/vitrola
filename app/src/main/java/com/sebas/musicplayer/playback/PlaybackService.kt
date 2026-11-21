@@ -20,12 +20,29 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import androidx.media3.session.MediaSessionService
 import com.sebas.musicplayer.MusicApp
+import android.content.Context
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import com.sebas.musicplayer.playback.gain.GainAudioProcessor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import com.sebas.musicplayer.playback.session.QueueStore
 import com.sebas.musicplayer.ui.MainActivity
 import com.sebas.musicplayer.widget.PlayerWidget
 import com.sebas.musicplayer.widget.WidgetState
 
+@OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
+
+    /** Volumen propio de cada canción: va dentro de la cadena de audio (puede subir, no solo bajar). */
+    private val gainProcessor = GainAudioProcessor()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var player: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
@@ -37,7 +54,18 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val exo = ExoPlayer.Builder(this)
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): AudioSink = DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioProcessors(arrayOf(gainProcessor))
+                .build()
+        }
+        val exo = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -75,8 +103,32 @@ class PlaybackService : MediaSessionService() {
         exo.addListener(reshuffleListener)
         exo.addListener(modeButtonListener)
         exo.addListener(widgetListener)
+        exo.addListener(gainListener)
         pushWidget(exo)
+        // Si se cambia el volumen de la canción que suena (o terminan de cargar), se oye al momento.
+        scope.launch { container.songGains.gains.collect { applyGain(exo) } }
+        scope.launch {
+            container.statsRepository.favoriteIds.collect { favoriteIds = it.toSet(); pushWidget(exo) }
+        }
+        // La barra del widget avanza cada 15 s mientras suena (el tiempo en números corre solo).
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(15_000)
+                if (exo.isPlaying) pushWidget(exo)
+            }
+        }
         mediaSession?.setCustomLayout(ImmutableList.of(modeButton(exo)))
+    }
+
+    private val gainListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            player?.let(::applyGain)
+        }
+    }
+
+    private fun applyGain(p: Player) {
+        val id = p.currentMediaItem?.mediaId?.toLongOrNull()
+        gainProcessor.gainDb = if (id == null) 0f else container.songGains.gainOf(id)
     }
 
     /** Mantiene el widget de inicio al día con la canción y el estado play/pausa. */
@@ -87,19 +139,37 @@ class PlaybackService : MediaSessionService() {
                     Player.EVENT_MEDIA_METADATA_CHANGED,
                     Player.EVENT_IS_PLAYING_CHANGED,
                     Player.EVENT_TIMELINE_CHANGED,
+                    Player.EVENT_POSITION_DISCONTINUITY,
+                    Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
                 )
             ) pushWidget(player)
         }
     }
 
+    /** Favoritas (para el corazón del widget); se mantiene al día desde la base. */
+    @Volatile private var favoriteIds: Set<Long> = emptySet()
+
     private fun pushWidget(p: Player) {
-        val md = p.currentMediaItem?.mediaMetadata
-        val state = if (md == null) null else WidgetState(
-            title = md.title?.toString().orEmpty(),
-            artist = md.artist?.toString().orEmpty(),
-            artworkUri = md.artworkUri,
-            isPlaying = p.isPlaying,
-        )
+        val item = p.currentMediaItem
+        val md = item?.mediaMetadata
+        val id = item?.mediaId?.toLongOrNull()
+        val state = if (md == null || id == null) null else {
+            val nextIndex = p.nextMediaItemIndex
+            WidgetState(
+                songId = id,
+                title = md.title?.toString().orEmpty(),
+                artist = md.artist?.toString().orEmpty(),
+                artworkUri = md.artworkUri,
+                isPlaying = p.isPlaying,
+                positionMs = p.currentPosition,
+                durationMs = p.duration.takeIf { it > 0 } ?: md.durationMs ?: 0L,
+                track = p.currentMediaItemIndex + 1,
+                trackCount = p.mediaItemCount,
+                nextTitle = if (nextIndex == C.INDEX_UNSET) null
+                else p.getMediaItemAt(nextIndex).mediaMetadata.title?.toString(),
+                isFavorite = id in favoriteIds,
+            )
+        }
         PlayerWidget.update(this, state)
     }
 
@@ -229,6 +299,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         player?.let { queueStore.save(it) }
         container.sleepTimer.detach()
         container.audioEffects.detach()

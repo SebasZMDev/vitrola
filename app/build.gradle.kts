@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
 
+    testImplementation("org.json:json:20240303")
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
 }

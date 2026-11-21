@@ -7,6 +7,8 @@ import com.sebas.musicplayer.data.playlist.PlaylistRepository
 import com.sebas.musicplayer.data.stats.FavoriteEntity
 import com.sebas.musicplayer.data.stats.PlayStatEntity
 import com.sebas.musicplayer.data.stats.SongStatsDao
+import com.sebas.musicplayer.playback.gain.SongGainEntity
+import com.sebas.musicplayer.playback.gain.SongGainRepository
 import kotlinx.coroutines.flow.first
 
 /**
@@ -18,6 +20,7 @@ class BackupManager(
     private val overrideDao: SongOverrideDao,
     private val statsDao: SongStatsDao,
     private val playlists: PlaylistRepository,
+    private val gains: SongGainRepository? = null,
 ) {
 
     suspend fun export(now: Long = System.currentTimeMillis()): BackupData {
@@ -32,6 +35,7 @@ class BackupManager(
             overrides = overrideDao.getAll().mapNotNull { o ->
                 idToKey[o.songId]?.let { BackupOverride(it, o.title, o.artist, o.album) }
             },
+            gains = gains?.getAll().orEmpty().mapNotNull { g -> idToKey[g.songId]?.let { BackupGain(it, g.gainDb) } },
         )
     }
 
@@ -73,6 +77,10 @@ class BackupManager(
         }
         overrideDao.upsertAll(overrides)
 
-        return ImportReport(added, skipped, favorites.size, stats.size, overrides.size, missingKeys.size)
+        // Volumen por canción: lo del respaldo manda.
+        val gainRows = data.gains.mapNotNull { g -> find(g.key)?.let { SongGainEntity(it, g.gainDb) } }
+        gains?.importAll(gainRows)
+
+        return ImportReport(added, skipped, favorites.size, stats.size, overrides.size, missingKeys.size, gainRows.size)
     }
 }

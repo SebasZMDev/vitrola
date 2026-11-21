@@ -28,7 +28,44 @@ class NowPlayingViewModel(
     settings: AppSettings,
     private val stats: SongStatsRepository,
     lyricsRepository: LyricsRepository,
+    private val gains: com.sebas.musicplayer.playback.gain.SongGainRepository,
 ) : ViewModel() {
+
+    /** Volumen propio de la canción actual (dB). */
+    val songGain: StateFlow<Float> = combine(
+        playerController.state.map { it.currentSong?.id }.distinctUntilChanged(),
+        gains.gains,
+    ) { id, map -> if (id == null) 0f else map[id] ?: 0f }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0f)
+
+    private val _leveling = kotlinx.coroutines.flow.MutableStateFlow<LevelingUi>(LevelingUi.Idle)
+    val leveling: StateFlow<LevelingUi> = _leveling
+    private var levelJob: kotlinx.coroutines.Job? = null
+
+    init {
+        // Al cambiar de canción el mensaje de "nivelar" ya no aplica.
+        viewModelScope.launch {
+            playerController.state.map { it.currentSong?.id }.distinctUntilChanged().collect {
+                levelJob?.cancel()
+                _leveling.value = LevelingUi.Idle
+            }
+        }
+    }
+
+    fun setSongGain(db: Float) {
+        val id = playerController.state.value.currentSong?.id ?: return
+        gains.set(id, db)
+    }
+
+    fun levelSong() {
+        val song = playerController.state.value.currentSong ?: return
+        levelJob?.cancel()
+        _leveling.value = LevelingUi.Working
+        levelJob = viewModelScope.launch {
+            val db = gains.level(song.id, song.uri)
+            _leveling.value = if (db == null) LevelingUi.Failed else LevelingUi.Done(db)
+        }
+    }
 
     val playerState: StateFlow<PlayerState> = playerController.state
 
@@ -103,6 +140,7 @@ class NowPlayingViewModel(
                     app.container.settings,
                     app.container.statsRepository,
                     app.container.lyricsRepository,
+                    app.container.songGains,
                 )
             }
         }
