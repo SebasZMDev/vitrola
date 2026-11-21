@@ -28,7 +28,8 @@ Casi todos los reproductores gratis te llenan de anuncios o te cobran una suscri
 
 - **Estilos de reproductor analógicos:** vinilo, tocadiscos con brazo, cassette, radio y CD, que giran con inercia.
 - **Letras `.lrc` sincronizadas** y velocidad de reproducción ajustable.
-- **Widget de inicio** que toma el color de la portada.
+- **Widget de inicio** con favoritos y barra de progreso, que toma el color de la portada.
+- **Volumen por canción**, manual o nivelado automático.
 - **Ecualizador** y temporizador para dormir.
 - **Biblioteca completa:** álbumes, artistas, playlists con portada propia, favoritas, recientes y más escuchadas.
 - **Cola editable** que se mantiene al cerrar la app.
@@ -61,7 +62,7 @@ Para correr los tests:
 
 ## Estado
 
-En desarrollo activo (v0.1.0). Lo próximo es el volumen por canción y un widget rediseñado.
+En desarrollo activo (v0.1.0).
 
 ---
 
