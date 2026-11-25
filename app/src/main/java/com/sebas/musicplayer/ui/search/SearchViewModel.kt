@@ -70,7 +70,8 @@ class SearchViewModel(
         _query.value = value
     }
 
-    fun onSongClick(index: Int) = playerController.playQueue(results.value.songs, index)
+    /** [songs] llega en el orden visible. */
+    fun onSongClick(songs: List<Song>, index: Int) = playerController.playQueue(songs, index)
 
     private fun search(songs: List<Song>, rawQuery: String): SearchResults {
         val q = rawQuery.trim().normalizedForSearch()

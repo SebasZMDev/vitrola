@@ -63,10 +63,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sebas.musicplayer.domain.library.Album
 import com.sebas.musicplayer.domain.library.Artist
+import com.sebas.musicplayer.data.settings.SongSort
+import com.sebas.musicplayer.domain.library.ListDefaultSort
+import com.sebas.musicplayer.domain.library.sortSongs
 import com.sebas.musicplayer.domain.model.Song
+import com.sebas.musicplayer.ui.components.SelectableSong
+import com.sebas.musicplayer.ui.components.SelectableSongRow
+import com.sebas.musicplayer.ui.components.SelectionBar
 import com.sebas.musicplayer.ui.components.SongArtwork
-import com.sebas.musicplayer.ui.components.SongMenuButton
-import com.sebas.musicplayer.ui.components.SongRow
+import com.sebas.musicplayer.ui.components.SongSelection
+import com.sebas.musicplayer.ui.components.SortButton
+import com.sebas.musicplayer.ui.components.rememberListSort
+import com.sebas.musicplayer.ui.components.rememberSongSelection
 
 /**
  * Pantalla de búsqueda (ruta propia). [onBack] vuelve a Home.
@@ -81,13 +89,29 @@ fun SearchRoute(onBack: () -> Unit, onAlbumClick: (Long) -> Unit, onArtistClick:
     // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
     val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
 
+    val (sort, onSortChange) = rememberListSort("search")
+    // Canciones en el orden visible: se ordenan los resultados ya recortados.
+    val items = remember(results.songs, sort) {
+        sortSongs(results.songs, sort) { it }.map { SelectableSong(it.id, it) }
+    }
+    val visible = remember(items) { items.map { it.song } }
+    val selection = rememberSongSelection()
+
     SearchContent(
         query = query,
         results = results,
+        items = items,
+        selection = selection,
+        sort = sort,
+        onSortChange = onSortChange,
         currentSongId = currentSongId,
-        onQueryChange = viewModel::onQueryChange,
+        // Las marcas se borran al cambiar el texto, no al recomponer ni al rotar.
+        onQueryChange = { text ->
+            if (text != query) selection.clear()
+            viewModel.onQueryChange(text)
+        },
         onBack = onBack,
-        onSongClick = viewModel::onSongClick,
+        onSongClick = { index -> viewModel.onSongClick(visible, index) },
         onAlbumClick = onAlbumClick,
         onArtistClick = onArtistClick,
     )
@@ -98,6 +122,10 @@ fun SearchRoute(onBack: () -> Unit, onAlbumClick: (Long) -> Unit, onArtistClick:
 private fun SearchContent(
     query: String,
     results: SearchResults,
+    items: List<SelectableSong>,
+    selection: SongSelection,
+    sort: SongSort,
+    onSortChange: (SongSort) -> Unit,
     currentSongId: Long?,
     onQueryChange: (String) -> Unit,
     onBack: () -> Unit,
@@ -117,11 +145,16 @@ private fun SearchContent(
         }
     }
     HideKeyboardOnScroll(listState) { keyboard?.hide() }
+    // Solo con resultados a la vista: la barra descarta las marcas que no estén en [items].
+    val selecting = selection.active && items.isNotEmpty()
+    LaunchedEffect(selecting) { if (selecting) keyboard?.hide() }
 
     Scaffold(
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
         topBar = {
-            Row(
+            if (selecting) {
+                SelectionBar(selection = selection, items = items, modifier = Modifier.statusBarsPadding())
+            } else Row(
                 modifier = Modifier.statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -176,26 +209,31 @@ private fun SearchContent(
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
                 if (results.songs.isNotEmpty()) {
-                    item(key = "h_songs", contentType = "header") { SectionHeader("Canciones") }
-                    itemsIndexed(results.songs, key = { _, s -> "s${s.id}" }, contentType = { _, _ -> "song" }) { index, song ->
-                        SongRow(
-                            song = song,
-                            isCurrent = song.id == currentSongId,
-                            onClick = { onSongClick(index) },
-                            trailing = { SongMenuButton(song) },
+                    item(key = "h_songs", contentType = "header") {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            SectionHeader("Canciones", Modifier.weight(1f))
+                            Box(Modifier.padding(end = 8.dp)) { SortButton(sort, onSortChange) }
+                        }
+                    }
+                    itemsIndexed(items, key = { _, item -> "s${item.key}" }, contentType = { _, _ -> "song" }) { index, item ->
+                        SelectableSongRow(
+                            selection = selection,
+                            item = item,
+                            isCurrent = item.song.id == currentSongId,
+                            onPlay = { onSongClick(index) },
                         )
                     }
                 }
                 if (results.albums.isNotEmpty()) {
                     item(key = "h_albums", contentType = "header") { SectionHeader("Álbumes") }
                     itemsIndexed(results.albums, key = { _, a -> "a${a.id}" }, contentType = { _, _ -> "album" }) { _, album ->
-                        AlbumResultRow(album, onClick = { onAlbumClick(album.id) })
+                        AlbumResultRow(album, onClick = { if (!selecting) onAlbumClick(album.id) })
                     }
                 }
                 if (results.artists.isNotEmpty()) {
                     item(key = "h_artists", contentType = "header") { SectionHeader("Artistas") }
                     itemsIndexed(results.artists, key = { _, a -> "r${a.name}" }, contentType = { _, _ -> "artist" }) { _, artist ->
-                        ArtistResultRow(artist, onClick = { onArtistClick(artist.name) })
+                        ArtistResultRow(artist, onClick = { if (!selecting) onArtistClick(artist.name) })
                     }
                 }
             }
@@ -211,11 +249,11 @@ private fun HideKeyboardOnScroll(listState: LazyListState, hide: () -> Unit) {
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         title,
         style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
     )
 }
 
@@ -268,6 +306,10 @@ private fun SearchContentPreview() {
         SearchContent(
             query = "a",
             results = SearchResults(songs, listOf(album), listOf(Artist("Artista", songs, listOf(album)))),
+            items = songs.map { SelectableSong(it.id, it) },
+            selection = rememberSongSelection(),
+            sort = ListDefaultSort,
+            onSortChange = {},
             currentSongId = 1L,
             onQueryChange = {}, onBack = {}, onSongClick = {}, onAlbumClick = {}, onArtistClick = {},
         )

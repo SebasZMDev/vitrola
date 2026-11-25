@@ -1,10 +1,12 @@
 package com.sebas.musicplayer.ui.smartlists
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -22,14 +24,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sebas.musicplayer.domain.library.sortSongs
 import com.sebas.musicplayer.ui.browse.PlayShuffleButtons
 import com.sebas.musicplayer.ui.components.EmptyState
-import com.sebas.musicplayer.ui.components.SongMenuButton
-import com.sebas.musicplayer.ui.components.SongRow
+import com.sebas.musicplayer.ui.components.SelectableSong
+import com.sebas.musicplayer.ui.components.SelectableSongRow
+import com.sebas.musicplayer.ui.components.SelectionBar
+import com.sebas.musicplayer.ui.components.SortButton
+import com.sebas.musicplayer.ui.components.rememberListSort
+import com.sebas.musicplayer.ui.components.rememberSongSelection
 
 /** Pantalla de una lista automática: Favoritas, Recientes o Más escuchadas. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,15 +49,27 @@ fun SmartListRoute(kindRoute: String?, onBack: () -> Unit) {
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
     // Solo recompone cuando cambia la canción, no con cada tick de posición.
     val currentSongId by remember { derivedStateOf { playerState.currentSong?.id } }
+    val (sort, onSortChange) = rememberListSort("smart:${kind.route}")
+    // Filas en el orden visible; reproducir y aleatorio usan este mismo orden.
+    val items = remember(state.songs, sort) {
+        sortSongs(state.songs, sort) { it }.map { SelectableSong(it.id, it) }
+    }
+    val visible = remember(items) { items.map { it.song } }
+    val selection = rememberSongSelection()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(kind.title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás") }
-                },
-            )
+            // Solo con la lista cargada: la barra descarta las marcas que no estén en [items].
+            if (selection.active && state.loaded) {
+                SelectionBar(selection = selection, items = items, modifier = Modifier.statusBarsPadding())
+            } else {
+                TopAppBar(
+                    title = { Text(kind.title) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás") }
+                    },
+                )
+            }
         },
     ) { padding ->
         if (state.loaded && state.songs.isEmpty()) {
@@ -66,18 +86,23 @@ fun SmartListRoute(kindRoute: String?, onBack: () -> Unit) {
         } else {
             Column(Modifier.fillMaxSize().padding(padding)) {
                 PlayShuffleButtons(
-                    onPlay = { viewModel.play(state.songs, 0) },
-                    onShuffle = { viewModel.playShuffled(state.songs) },
+                    onPlay = { viewModel.play(visible, 0) },
+                    onShuffle = { viewModel.playShuffled(visible) },
                     enabled = state.songs.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
+                if (state.songs.isNotEmpty()) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp), contentAlignment = Alignment.CenterEnd) {
+                        SortButton(sort, onSortChange)
+                    }
+                }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    itemsIndexed(state.songs, key = { _, s -> s.id }, contentType = { _, _ -> "song" }) { index, song ->
-                        SongRow(
-                            song = song,
-                            isCurrent = song.id == currentSongId,
-                            onClick = { viewModel.play(state.songs, index) },
-                            trailing = { SongMenuButton(song) },
+                    itemsIndexed(items, key = { _, item -> item.key }, contentType = { _, _ -> "song" }) { index, item ->
+                        SelectableSongRow(
+                            selection = selection,
+                            item = item,
+                            isCurrent = item.song.id == currentSongId,
+                            onPlay = { viewModel.play(visible, index) },
                         )
                     }
                 }
