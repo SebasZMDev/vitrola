@@ -16,7 +16,8 @@ Fuera: Duplicados y la cola de reproducción (otro propósito). "Tirar para actu
 - Búsqueda: solo canciones, no álbumes ni artistas. Al cambiar el texto se cancela la selección.
 
 ## Ordenar (en las 6)
-- Mismo botón que en Canciones: título, artista, álbum, duración; tocar el activo invierte el sentido.
+- Mismo botón que en Canciones: título, artista, álbum, duración y recientes; tocar el activo invierte el sentido.
+- "Recientes" ordena por la fecha en que el archivo se agregó al teléfono (MediaStore `DATE_ADDED`, que hoy `Song` no lee). Al elegirlo empieza por lo más nuevo. También está en Canciones.
 - Las otras 5 suman "Orden original" (por defecto): el de la playlist, las pistas, lo reciente, lo más escuchado o los resultados.
 - Reproducir, aleatorio y tocar una canción usan el orden visible.
 - Se recuerda por lista (cada playlist, álbum, artista y lista automática; una sola preferencia para búsqueda). Canciones conserva la suya, sin "Orden original".
