@@ -115,6 +115,20 @@ class AppContainer(context: Context) {
         )
     }
 
+    /** "Nivelar toda la biblioteca". Una sola instancia: sigue aunque se salga de Configuración. */
+    val libraryLeveler: com.sebas.musicplayer.playback.gain.LibraryLeveler by lazy {
+        com.sebas.musicplayer.playback.gain.LibraryLeveler(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            songs = { songRepository.getSongs() },
+            measure = { songGains.measureCached(it.id, it.uri) },
+            manualIds = { songGains.getAll().filterNot { it.isAuto }.mapTo(HashSet()) { it.songId } },
+            apply = { plan ->
+                songGains.applyAuto(plan)
+                settings.setLevelTarget(plan.targetDb)
+            },
+        )
+    }
+
     val sleepTimer: SleepTimer by lazy { SleepTimerController() }
 
     val audioEffects: AudioEffects by lazy { EqualizerAudioEffects(appContext) }

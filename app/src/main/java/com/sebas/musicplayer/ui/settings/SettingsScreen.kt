@@ -36,6 +36,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import com.sebas.musicplayer.playback.gain.LevelingState
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -73,6 +76,7 @@ fun SettingsRoute(onBack: () -> Unit, onOpenDuplicates: () -> Unit = {}) {
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val folders by viewModel.folders.collectAsStateWithLifecycle()
+    val leveling by viewModel.leveling.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val toast: (String) -> Unit = { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -105,6 +109,10 @@ fun SettingsRoute(onBack: () -> Unit, onOpenDuplicates: () -> Unit = {}) {
         onExcludeWhatsApp = viewModel::setExcludeWhatsApp,
         onMinDuration = viewModel::setMinDurationSec,
         onFolderExcluded = viewModel::setFolderExcluded,
+        leveling = leveling,
+        onStartLeveling = viewModel::startLeveling,
+        onCancelLeveling = viewModel::cancelLeveling,
+        onRemoveLeveling = viewModel::removeLeveling,
     )
 }
 
@@ -128,6 +136,10 @@ internal fun SettingsScreen(
     onOpenDuplicates: () -> Unit = {},
     onPickLyricsFolder: () -> Unit = {},
     onClearLyricsFolder: () -> Unit = {},
+    leveling: LevelingState = LevelingState.Idle,
+    onStartLeveling: () -> Unit = {},
+    onCancelLeveling: () -> Unit = {},
+    onRemoveLeveling: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -224,6 +236,17 @@ internal fun SettingsScreen(
                     subtitle = "Si lo apagas, la canción suena y el reproductor sigue abajo en miniatura.",
                     checked = state.openPlayerOnTap,
                     onChange = onOpenPlayerOnTap,
+                )
+            }
+
+            item { SectionTitle("Volumen") }
+            item {
+                LevelingBlock(
+                    leveling = leveling,
+                    leveled = state.levelTargetDb != null,
+                    onStart = onStartLeveling,
+                    onCancel = onCancelLeveling,
+                    onRemove = onRemoveLeveling,
                 )
             }
 
@@ -503,4 +526,53 @@ private fun ChipRow(content: @Composable () -> Unit) {
         modifier = Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) { content() }
+}
+
+/** "Nivelar toda la biblioteca": botón, progreso y resultado. */
+@Composable
+private fun LevelingBlock(
+    leveling: LevelingState,
+    leveled: Boolean,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Ajusta cada canción a un volumen parecido. No modifica los archivos. Puede tardar.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (leveling is LevelingState.Running) {
+            if (leveling.total == 0) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            } else {
+                LinearProgressIndicator(
+                    progress = { leveling.done.toFloat() / leveling.total },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("${leveling.done} de ${leveling.total}", style = MaterialTheme.typography.bodyMedium)
+            }
+            OutlinedButton(onClick = onCancel) { Text("Cancelar") }
+        } else {
+            OutlinedButton(onClick = onStart) { Text("Nivelar toda la biblioteca") }
+        }
+        when (leveling) {
+            is LevelingState.Done -> {
+                Text("${leveling.leveled} canciones niveladas", style = MaterialTheme.typography.bodyMedium)
+                if (leveling.failed > 0) {
+                    Text("${leveling.failed} no se pudieron medir", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            LevelingState.Failed -> Text(
+                "No se pudo nivelar",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            else -> Unit
+        }
+        if (leveled) {
+            TextButton(onClick = onRemove) { Text("Quitar nivelado") }
+        }
+    }
 }

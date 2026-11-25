@@ -21,6 +21,9 @@ import com.sebas.musicplayer.data.settings.PlayerLook
 import com.sebas.musicplayer.data.settings.PlayerStyle
 import com.sebas.musicplayer.data.settings.SettingsState
 import com.sebas.musicplayer.data.settings.ThemeMode
+import com.sebas.musicplayer.playback.gain.LevelingState
+import com.sebas.musicplayer.playback.gain.LibraryLeveler
+import com.sebas.musicplayer.playback.gain.SongGainRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -34,9 +37,29 @@ class SettingsViewModel(
     private val backupManager: BackupManager,
     private val resolver: ContentResolver,
     private val songEdits: MutableSharedFlow<Unit>,
+    private val leveler: LibraryLeveler,
+    private val songGains: SongGainRepository,
 ) : ViewModel() {
 
     val state: StateFlow<SettingsState> = settings.state
+
+    val leveling: StateFlow<LevelingState> = leveler.state
+
+    fun startLeveling() {
+        leveler.start()
+    }
+
+    fun cancelLeveling() {
+        leveler.cancel()
+    }
+
+    /** Corre en el nivelador, no en [viewModelScope]: salir de la pantalla no lo deja a medias. */
+    fun removeLeveling() {
+        leveler.remove {
+            songGains.removeAuto()
+            settings.setLevelTarget(null)
+        }
+    }
 
     /** Guarda el respaldo en el archivo [uri] elegido por el usuario; [onDone] recibe el mensaje a mostrar. */
     fun exportBackup(uri: Uri, onDone: (String) -> Unit) {
@@ -126,6 +149,8 @@ class SettingsViewModel(
                     app.container.backupManager,
                     app.contentResolver,
                     app.container.songEdits,
+                    app.container.libraryLeveler,
+                    app.container.songGains,
                 )
             }
         }
