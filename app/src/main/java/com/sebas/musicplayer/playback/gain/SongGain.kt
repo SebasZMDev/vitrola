@@ -8,6 +8,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -97,10 +98,17 @@ class SongGainRepository(
         }
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             writes.withLock {
-                dao.upsertAll(listOf(SongGainEntity(songId, v)))
-                synchronized(pending) {
-                    val left = pending.getValue(songId) - 1
-                    if (left == 0) pending.remove(songId) else pending[songId] = left
+                try {
+                    dao.upsertAll(listOf(SongGainEntity(songId, v)))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Sin guardar: se sigue oyendo el valor nuevo hasta que otra escritura publique lo de la base.
+                } finally {
+                    synchronized(pending) {
+                        val left = pending.getValue(songId) - 1
+                        if (left == 0) pending.remove(songId) else pending[songId] = left
+                    }
                 }
             }
         }

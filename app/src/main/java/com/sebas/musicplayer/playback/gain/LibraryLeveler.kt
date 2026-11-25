@@ -43,6 +43,9 @@ class LibraryLeveler(
     private var job: Job? = null
     private var removing = false
 
+    /** La tarea actual ya está aplicando: no se puede cancelar. */
+    private var applying = false
+
     /** Sube con cada tarea o cancelación: una tarea vieja ya no puede cambiar el estado. */
     private var generation = 0
 
@@ -51,13 +54,14 @@ class LibraryLeveler(
         if (_state.value is LevelingState.Running || (removing && job?.isCompleted == false)) return
         val mine = ++generation
         removing = false
+        applying = false
         _state.value = LevelingState.Running(0, 0)
         launchAfterPrevious { run(mine) }
     }
 
-    /** Detiene la medición; no se aplica nada. Si ya se estaba aplicando, esa escritura termina. */
+    /** Detiene la medición; no se aplica nada. Si ya se está aplicando no hace nada: termina y publica el resultado. */
     fun cancel() = synchronized(lock) {
-        if (removing) return
+        if (removing || applying) return
         generation++
         job?.cancel()
         _state.value = LevelingState.Idle
@@ -69,6 +73,7 @@ class LibraryLeveler(
         // Un quitado anterior aún en curso no se corta.
         if (!removing) job?.cancel()
         removing = true
+        applying = false
         _state.value = LevelingState.Idle
         launchAfterPrevious {
             try {
@@ -113,7 +118,12 @@ class LibraryLeveler(
                 publish(mine, LevelingState.Running(index + 1, list.size))
             }
             val plan = planLevel(measures, manualIds())
-            currentCoroutineContext().ensureActive()
+            val context = currentCoroutineContext()
+            // Bajo el candado: o [cancel] llegó antes y se detiene aquí, o ya no puede cancelar.
+            synchronized(lock) {
+                context.ensureActive()
+                if (plan != null && mine == generation) applying = true
+            }
             // Ganancias y objetivo van juntos: una vez empezado no se corta.
             if (plan != null) withContext(NonCancellable) { apply(plan) }
             publish(mine, LevelingState.Done(plan?.gains?.size ?: 0, failed))
@@ -125,6 +135,8 @@ class LibraryLeveler(
     }
 
     private fun publish(mine: Int, value: LevelingState) = synchronized(lock) {
-        if (mine == generation) _state.value = value
+        if (mine != generation) return@synchronized
+        if (value !is LevelingState.Running) applying = false
+        _state.value = value
     }
 }

@@ -528,6 +528,10 @@ private fun ChipRow(content: @Composable () -> Unit) {
     ) { content() }
 }
 
+internal fun leveledLabel(count: Int) = if (count == 1) "1 canción nivelada" else "$count canciones niveladas"
+
+internal fun unmeasuredLabel(count: Int) = if (count == 1) "1 no se pudo medir" else "$count no se pudieron medir"
+
 /** "Nivelar toda la biblioteca": botón, progreso y resultado. */
 @Composable
 private fun LevelingBlock(
@@ -559,9 +563,9 @@ private fun LevelingBlock(
         }
         when (leveling) {
             is LevelingState.Done -> {
-                Text("${leveling.leveled} canciones niveladas", style = MaterialTheme.typography.bodyMedium)
+                Text(leveledLabel(leveling.leveled), style = MaterialTheme.typography.bodyMedium)
                 if (leveling.failed > 0) {
-                    Text("${leveling.failed} no se pudieron medir", style = MaterialTheme.typography.bodyMedium)
+                    Text(unmeasuredLabel(leveling.failed), style = MaterialTheme.typography.bodyMedium)
                 }
             }
             LevelingState.Failed -> Text(
@@ -571,7 +575,7 @@ private fun LevelingBlock(
             )
             else -> Unit
         }
-        if (leveled) {
+        if (leveled && leveling !is LevelingState.Running) {
             TextButton(onClick = onRemove) { Text("Quitar nivelado") }
         }
     }

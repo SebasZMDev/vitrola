@@ -18,9 +18,16 @@ class SongGainRepositoryTest {
         @Volatile
         var gate: CompletableDeferred<Unit>? = null
 
+        @Volatile
+        var failNext = false
+
         override suspend fun getAll() = rows.values.sortedBy { it.songId }
         override suspend fun upsertAll(items: List<SongGainEntity>) {
             gate?.also { gate = null }?.await()
+            if (failNext) {
+                failNext = false
+                error("sin espacio")
+            }
             items.forEach { rows[it.songId] = it }
         }
         override suspend fun deleteAuto() {
@@ -84,6 +91,17 @@ class SongGainRepositoryTest {
         val repo = repo(dao)
         repo.importAll(listOf(SongGainEntity(1L, 2f, isAuto = true)))
         assertSame(mapOf(1L to (2f to false)), repo, dao)
+    }
+
+    @Test
+    fun failedSetDoesNotBlockLaterWrites() = runBlocking {
+        val dao = FakeDao(SongGainEntity(1L, 1f, isAuto = true))
+        val repo = repo(dao)
+        repo.getAll()
+        dao.failNext = true
+        repo.set(1L, 3f)
+        repo.applyAuto(LevelPlan(-12f, mapOf(1L to -2f)))
+        assertSame(mapOf(1L to (-2f to true)), repo, dao)
     }
 
     @Test

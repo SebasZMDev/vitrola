@@ -15,7 +15,7 @@ import kotlin.coroutines.coroutineContext
 /** Decodifica una canción entera (sin reproducirla) y mide su volumen. Tarda unos segundos. */
 class LoudnessAnalyzer(private val context: Context) {
 
-    /** null si el archivo no se pudo leer o es silencio. */
+    /** null si el archivo no se pudo leer, es silencio o el decodificador se atascó. */
     suspend fun measure(uri: Uri): Loudness? = withContext(Dispatchers.Default) {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
@@ -36,8 +36,12 @@ class LoudnessAnalyzer(private val context: Context) {
             var buf = FloatArray(16384)
             val info = MediaCodec.BufferInfo()
             var inputDone = false
+            val durationUs =
+                if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L
+            val guard = DecodeGuard(durationUs / 1000, nowMs = { System.nanoTime() / 1_000_000 })
             while (true) {
                 coroutineContext.ensureActive()
+                if (guard.timedOut()) return@withContext null
                 if (!inputDone) {
                     val inIdx = dec.dequeueInputBuffer(10_000)
                     if (inIdx >= 0) {
@@ -49,9 +53,15 @@ class LoudnessAnalyzer(private val context: Context) {
                             dec.queueInputBuffer(inIdx, 0, n, extractor.sampleTime, 0)
                             extractor.advance()
                         }
+                        guard.progress()
                     }
                 }
                 val outIdx = dec.dequeueOutputBuffer(info, 10_000)
+                if (outIdx >= 0 && (info.size > 0 || info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)) {
+                    guard.progress()
+                } else if (outIdx != MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    guard.emptyOutput(inputDone)
+                }
                 when {
                     outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                         val f = dec.outputFormat

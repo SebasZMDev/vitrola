@@ -124,6 +124,24 @@ class LibraryLevelerTest {
     }
 
     @Test
+    fun cancelWhileApplyingStillPublishesDone() = runBlocking {
+        val applying = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val leveler = leveler(apply = {
+            applying.complete(Unit)
+            gate.await()
+            applied += it
+        })
+        leveler.start()
+        withTimeout(5000) { applying.await() }
+        leveler.cancel()
+        assertEquals(LevelingState.Running(3, 3), leveler.state.value)
+        gate.complete(Unit)
+        assertEquals(LevelingState.Done(leveled = 3, failed = 0), leveler.awaitEnd())
+        assertEquals(1, applied.size)
+    }
+
+    @Test
     fun removeWhileApplyingRunsAfterApplyEnds() = runBlocking {
         val applying = CompletableDeferred<Unit>()
         val gate = CompletableDeferred<Unit>()
