@@ -36,6 +36,7 @@ class MediaStoreSongRepository(
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATE_ADDED,
         )
         // Solo música, con la duración mínima, sin WhatsApp y sin las carpetas que el usuario excluyó
         // (ver LibraryFilter). RELATIVE_PATH existe desde Android 10; antes se filtra por la ruta
@@ -68,6 +69,7 @@ class MediaStoreSongRepository(
             val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
@@ -90,6 +92,7 @@ class MediaStoreSongRepository(
                     albumId = albumId,
                     durationMs = cursor.getLong(durationCol),
                     artworkUri = ContentUris.withAppendedId(ALBUM_ART_URI, albumId),
+                    dateAdded = cursor.getLong(dateAddedCol),
                 )
             }
         }

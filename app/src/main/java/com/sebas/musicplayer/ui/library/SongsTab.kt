@@ -9,15 +9,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -32,7 +28,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +54,7 @@ import com.sebas.musicplayer.ui.playlists.AddToPlaylistDialog
 import com.sebas.musicplayer.ui.components.EmptyState
 import com.sebas.musicplayer.ui.components.SongMenuButton
 import com.sebas.musicplayer.ui.components.SongRow
+import com.sebas.musicplayer.ui.components.SortButton
 
 /**
  * Pestaña "Canciones" de HomeScreen. Sin Scaffold ni barra superior: solo el contenido.
@@ -209,7 +205,7 @@ private fun SongsContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
                             )
-                            SortButton(sort, onSortChange)
+                            SortButton(sort, onSortChange, SongSortField.entries - SongSortField.ORIGINAL)
                         }
                     }
                     itemsIndexed(uiState.songs, key = { _, song -> song.id }, contentType = { _, _ -> "song" }) { index, song ->
@@ -224,43 +220,6 @@ private fun SongsContent(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SortButton(sort: SongSort, onChange: (SongSort) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { open = true }) {
-            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(sort.field.label, modifier = Modifier.padding(start = 6.dp))
-            Icon(
-                if (sort.ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                contentDescription = if (sort.ascending) "Ascendente" else "Descendente",
-                modifier = Modifier.padding(start = 4.dp).size(16.dp),
-            )
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            SongSortField.entries.forEach { field ->
-                DropdownMenuItem(
-                    text = { Text(field.label) },
-                    trailingIcon = {
-                        if (field == sort.field) {
-                            Icon(
-                                if (sort.ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    },
-                    // Tocar el criterio activo invierte el sentido; uno nuevo empieza ascendente.
-                    onClick = {
-                        open = false
-                        onChange(if (field == sort.field) sort.copy(ascending = !sort.ascending) else SongSort(field, true))
-                    },
-                )
             }
         }
     }

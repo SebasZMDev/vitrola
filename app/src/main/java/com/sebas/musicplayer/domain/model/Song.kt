@@ -17,4 +17,6 @@ data class Song(
     val artworkUri: Uri?,
     /** Género puesto por el usuario (el del archivo casi nunca sirve); null = sin género. */
     val genre: String? = null,
+    /** Cuándo se agregó al teléfono, en segundos (MediaStore DATE_ADDED). */
+    val dateAdded: Long = 0,
 )

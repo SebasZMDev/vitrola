@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.data.settings.SongSort
 import com.sebas.musicplayer.data.settings.SongSortField
+import com.sebas.musicplayer.domain.library.sortSongs
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
@@ -56,8 +57,9 @@ class LibraryViewModel(
     /** Canciones tal como llegan del repositorio; [_uiState] las muestra ya ordenadas. */
     private var allSongs: List<Song> = emptyList()
 
-    val sort: StateFlow<SongSort> = settings.state.map { it.songSort }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, settings.current.songSort)
+    /** Aquí no hay "Orden original": si estuviera guardado, se usa el orden por defecto. */
+    val sort: StateFlow<SongSort> = settings.state.map { it.songSort.orDefault() }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, settings.current.songSort.orDefault())
 
     /** Ids marcados en el modo selección; vacío = modo normal. */
     private val _selected = MutableStateFlow<Set<Long>>(emptySet())
@@ -130,10 +132,12 @@ class LibraryViewModel(
     }
 
     private fun publish() {
-        _uiState.value = if (allSongs.isEmpty()) LibraryUiState.Empty else LibraryUiState.Success(sorted(allSongs, sort.value))
+        _uiState.value = if (allSongs.isEmpty()) LibraryUiState.Empty else LibraryUiState.Success(sortSongs(allSongs, sort.value) { it })
     }
 
     fun setSort(value: SongSort) = settings.setSongSort(value)
+
+    private fun SongSort.orDefault() = if (field == SongSortField.ORIGINAL) SongSort() else this
 
     fun startSelection(songId: Long) { _selected.value = setOf(songId) }
 
@@ -232,16 +236,4 @@ class LibraryViewModel(
             }
         }
     }
-}
-
-/** Ordena con comparación sin mayúsculas; en empate de artista/álbum/duración desempata por título. */
-fun sorted(songs: List<Song>, sort: SongSort): List<Song> {
-    val byTitle = compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.title }
-    val base: Comparator<Song> = when (sort.field) {
-        SongSortField.TITLE -> byTitle
-        SongSortField.ARTIST -> compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.artist }.then(byTitle)
-        SongSortField.ALBUM -> compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.album }.then(byTitle)
-        SongSortField.DURATION -> compareBy<Song> { it.durationMs }.then(byTitle)
-    }
-    return songs.sortedWith(if (sort.ascending) base else base.reversed())
 }

@@ -1,6 +1,8 @@
 package com.sebas.musicplayer.data.settings
 
 import android.content.Context
+import com.sebas.musicplayer.domain.library.decodeSort
+import com.sebas.musicplayer.domain.library.encodeSort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,7 +16,14 @@ enum class PlayerStyle { COVER, VINYL, CD, TURNTABLE, CASSETTE, RADIO }
 enum class PlayerBackground { GLOW, BLUR, OLED }
 
 /** Criterio para ordenar la lista de canciones. */
-enum class SongSortField(val label: String) { TITLE("Título"), ARTIST("Artista"), ALBUM("Álbum"), DURATION("Duración") }
+enum class SongSortField(val label: String) {
+    ORIGINAL("Orden original"),
+    TITLE("Título"),
+    ARTIST("Artista"),
+    ALBUM("Álbum"),
+    DURATION("Duración"),
+    RECENT("Recientes"),
+}
 
 data class SongSort(val field: SongSortField = SongSortField.TITLE, val ascending: Boolean = true)
 
@@ -54,6 +63,8 @@ data class SettingsState(
     val playerBackground: PlayerBackground = PlayerBackground.GLOW,
     val look: PlayerLook = PlayerLook(),
     val songSort: SongSort = SongSort(),
+    /** Orden elegido en cada lista (clave de la lista -> orden). */
+    val listSorts: Map<String, SongSort> = emptyMap(),
     /** Carpeta (URI de árbol SAF) donde están las letras .lrc; null = sin configurar. */
     val lyricsTreeUri: String? = null,
     val libraryVersion: Int = 0,
@@ -95,6 +106,10 @@ class AppSettings(context: Context) {
 
     fun setSongSort(value: SongSort) = update(libraryChanged = false) { it.copy(songSort = value) }
 
+    fun setListSort(key: String, sort: SongSort) = update(libraryChanged = false) {
+        it.copy(listSorts = it.listSorts + (key to sort))
+    }
+
     fun setLyricsTreeUri(value: String?) = update(libraryChanged = false) { it.copy(lyricsTreeUri = value) }
 
     fun setLook(transform: (PlayerLook) -> PlayerLook) = update(libraryChanged = false) { it.copy(look = transform(it.look)) }
@@ -123,6 +138,7 @@ class AppSettings(context: Context) {
             ?: PlayerStyle.COVER,
         playerBackground = prefs.enumOf(KEY_PLAYER_BG, PlayerBackground.GLOW),
         songSort = SongSort(prefs.enumOf(KEY_SORT_FIELD, SongSortField.TITLE), prefs.getBoolean(KEY_SORT_ASC, true)),
+        listSorts = readListSorts(),
         lyricsTreeUri = prefs.getString(KEY_LYRICS_TREE, null),
         look = PlayerLook(
             vinylColor = prefs.enumOf(KEY_VINYL_COLOR, VinylColor.BLACK),
@@ -133,6 +149,11 @@ class AppSettings(context: Context) {
             sleeve = prefs.getBoolean(KEY_SLEEVE, false),
         ),
     )
+
+    private fun readListSorts(): Map<String, SongSort> = prefs.all.entries.mapNotNull { (key, value) ->
+        if (!key.startsWith(KEY_LIST_SORT_PREFIX)) return@mapNotNull null
+        decodeSort(value as? String)?.let { key.removePrefix(KEY_LIST_SORT_PREFIX) to it }
+    }.toMap()
 
     private inline fun <reified E : Enum<E>> android.content.SharedPreferences.enumOf(key: String, default: E): E =
         getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
@@ -155,6 +176,9 @@ class AppSettings(context: Context) {
             .putString(KEY_SORT_FIELD, state.songSort.field.name)
             .putBoolean(KEY_SORT_ASC, state.songSort.ascending)
             .putString(KEY_LYRICS_TREE, state.lyricsTreeUri)
+            .apply {
+                state.listSorts.forEach { (key, sort) -> putString(KEY_LIST_SORT_PREFIX + key, encodeSort(sort)) }
+            }
             .apply()
     }
 
@@ -175,5 +199,6 @@ class AppSettings(context: Context) {
         const val KEY_SORT_FIELD = "song_sort_field"
         const val KEY_SORT_ASC = "song_sort_asc"
         const val KEY_LYRICS_TREE = "lyrics_tree_uri"
+        const val KEY_LIST_SORT_PREFIX = "list_sort_"
     }
 }
