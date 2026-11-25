@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 import com.sebas.musicplayer.playback.session.QueueStore
 import com.sebas.musicplayer.ui.MainActivity
 import com.sebas.musicplayer.widget.PlayerWidget
@@ -83,7 +84,7 @@ class PlaybackService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         player = exo
-        mediaSession = MediaSession.Builder(this, exo)
+        mediaSession = MediaSession.Builder(this, WrapAroundPlayer(exo))
             .setSessionActivity(activityIntent)
             .setCallback(sessionCallback)
             .build()
@@ -178,6 +179,14 @@ class PlaybackService : MediaSessionService() {
      * Al volver a la primera canción del orden se genera un orden nuevo.
      */
     private val reshuffleListener = object : Player.Listener {
+        /** Cada vez que se activa el mix se mezcla de nuevo, empezando por la que suena. */
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            val exo = player ?: return
+            if (!shuffleModeEnabled || exo.mediaItemCount == 0) return
+            val order = shuffleOrderFrom(exo.mediaItemCount, exo.currentMediaItemIndex)
+            exo.setShuffleOrder(DefaultShuffleOrder(order, Random.nextLong()))
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val exo = player ?: return
             if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) return

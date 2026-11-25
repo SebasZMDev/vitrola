@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -283,6 +284,7 @@ private fun PlaylistDetailContent(
                     menuExtra = { dismiss ->
                         DropdownMenuItem(
                             text = { Text("Quitar de la playlist") },
+                            leadingIcon = { Icon(Icons.Filled.RemoveCircleOutline, contentDescription = null) },
                             onClick = { dismiss(); onRemove(item.key.toInt()) },
                         )
                     },
