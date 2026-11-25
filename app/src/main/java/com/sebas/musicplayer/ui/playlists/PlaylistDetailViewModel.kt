@@ -32,6 +32,9 @@ data class PlaylistDetailState(
     val totalDurationMs: Long get() = entries.sumOf { it.song.durationMs }
 }
 
+/** Posiciones a borrar, de la última a la primera: cada borrado desplaza las siguientes. */
+fun removalOrder(positions: Collection<Int>): List<Int> = positions.distinct().sortedDescending()
+
 class PlaylistDetailViewModel(
     private val playlistId: Long,
     private val repository: PlaylistRepository,
@@ -80,6 +83,11 @@ class PlaylistDetailViewModel(
 
     fun removeAt(position: Int) {
         viewModelScope.launch { repository.removeAt(playlistId, position) }
+    }
+
+    /** Quita varias canciones, una tras otra en el orden de [removalOrder]. */
+    fun removeAll(positions: Collection<Int>) {
+        viewModelScope.launch { removalOrder(positions).forEach { repository.removeAt(playlistId, it) } }
     }
 
     fun rename(name: String) {
