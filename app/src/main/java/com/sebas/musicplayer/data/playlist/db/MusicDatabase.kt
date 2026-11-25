@@ -13,13 +13,15 @@ import com.sebas.musicplayer.data.stats.PlayStatEntity
 import com.sebas.musicplayer.data.stats.SongStatsDao
 import com.sebas.musicplayer.playback.gain.SongGainDao
 import com.sebas.musicplayer.playback.gain.SongGainEntity
+import com.sebas.musicplayer.playback.gain.SongLoudnessEntity
 
 @Database(
     entities = [
         PlaylistEntity::class, PlaylistSongEntity::class, SongOverrideEntity::class,
         FavoriteEntity::class, PlayStatEntity::class, SongGainEntity::class,
+        SongLoudnessEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -71,12 +73,23 @@ abstract class MusicDatabase : RoomDatabase() {
             }
         }
 
+        /** v7: nivelado de la biblioteca (ganancias automáticas y mediciones guardadas). */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `song_gain` ADD COLUMN `isAuto` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `song_loudness` (`songId` INTEGER NOT NULL, `loudnessDb` REAL NOT NULL, " +
+                        "`peak` REAL NOT NULL, PRIMARY KEY(`songId`))",
+                )
+            }
+        }
+
         @Volatile
         private var instance: MusicDatabase? = null
 
         fun get(context: Context): MusicDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MusicDatabase::class.java, "music.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 .also { instance = it }
         }

@@ -32,9 +32,9 @@ object GainMath {
         return sign(y) * (KNEE + (1f - KNEE) * tanh((a - KNEE) / (1f - KNEE)))
     }
 
-    /** Ganancia para llevar una canción medida a [TARGET_DB], sin subirla más de lo que su pico permite. */
-    fun suggest(loudnessDb: Float, peak: Float): Float {
-        val wanted = TARGET_DB - loudnessDb
+    /** Ganancia para llevar una canción medida a [targetDb], sin subirla más de lo que su pico permite. */
+    fun suggest(loudnessDb: Float, peak: Float, targetDb: Float = TARGET_DB): Float {
+        val wanted = targetDb - loudnessDb
         val headroom = if (peak > 0f) -20f * log10(peak) + LIMITER_ALLOWANCE_DB else MAX_DB
         val db = minOf(wanted, headroom).coerceIn(MIN_DB, MAX_DB)
         return (db * 2f).roundToInt() / 2f

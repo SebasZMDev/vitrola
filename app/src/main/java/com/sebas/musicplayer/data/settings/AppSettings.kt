@@ -67,6 +67,8 @@ data class SettingsState(
     val listSorts: Map<String, SongSort> = emptyMap(),
     /** Carpeta (URI de árbol SAF) donde están las letras .lrc; null = sin configurar. */
     val lyricsTreeUri: String? = null,
+    /** Volumen objetivo de la última nivelación de la biblioteca; null = nunca se niveló. */
+    val levelTargetDb: Float? = null,
     val libraryVersion: Int = 0,
 ) {
     val appearance: PlayerAppearance get() = PlayerAppearance(playerStyle, playerBackground, look)
@@ -112,6 +114,8 @@ class AppSettings(context: Context) {
 
     fun setLyricsTreeUri(value: String?) = update(libraryChanged = false) { it.copy(lyricsTreeUri = value) }
 
+    fun setLevelTarget(value: Float?) = update(libraryChanged = false) { it.copy(levelTargetDb = value) }
+
     fun setLook(transform: (PlayerLook) -> PlayerLook) = update(libraryChanged = false) { it.copy(look = transform(it.look)) }
 
     private fun update(libraryChanged: Boolean, transform: (SettingsState) -> SettingsState) {
@@ -140,6 +144,7 @@ class AppSettings(context: Context) {
         songSort = SongSort(prefs.enumOf(KEY_SORT_FIELD, SongSortField.TITLE), prefs.getBoolean(KEY_SORT_ASC, true)),
         listSorts = readListSorts(),
         lyricsTreeUri = prefs.getString(KEY_LYRICS_TREE, null),
+        levelTargetDb = if (prefs.contains(KEY_LEVEL_TARGET)) prefs.getFloat(KEY_LEVEL_TARGET, 0f) else null,
         look = PlayerLook(
             vinylColor = prefs.enumOf(KEY_VINYL_COLOR, VinylColor.BLACK),
             grooves = prefs.getBoolean(KEY_GROOVES, true),
@@ -177,6 +182,8 @@ class AppSettings(context: Context) {
             .putBoolean(KEY_SORT_ASC, state.songSort.ascending)
             .putString(KEY_LYRICS_TREE, state.lyricsTreeUri)
             .apply {
+                val target = state.levelTargetDb
+                if (target == null) remove(KEY_LEVEL_TARGET) else putFloat(KEY_LEVEL_TARGET, target)
                 state.listSorts.forEach { (key, sort) -> putString(KEY_LIST_SORT_PREFIX + key, encodeSort(sort)) }
             }
             .apply()
@@ -199,6 +206,7 @@ class AppSettings(context: Context) {
         const val KEY_SORT_FIELD = "song_sort_field"
         const val KEY_SORT_ASC = "song_sort_asc"
         const val KEY_LYRICS_TREE = "lyrics_tree_uri"
+        const val KEY_LEVEL_TARGET = "level_target_db"
         const val KEY_LIST_SORT_PREFIX = "list_sort_"
     }
 }

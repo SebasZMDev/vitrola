@@ -110,7 +110,8 @@ class AppContainer(context: Context) {
     val songGains: com.sebas.musicplayer.playback.gain.SongGainRepository by lazy {
         com.sebas.musicplayer.playback.gain.SongGainRepository(
             MusicDatabase.get(appContext).songGainDao(),
-            com.sebas.musicplayer.playback.gain.LoudnessAnalyzer(appContext),
+            measure = com.sebas.musicplayer.playback.gain.LoudnessAnalyzer(appContext)::measure,
+            targetDb = { settings.current.levelTargetDb ?: com.sebas.musicplayer.playback.gain.GainMath.TARGET_DB },
         )
     }
 
