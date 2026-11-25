@@ -6,10 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sebas.musicplayer.MusicApp
-import com.sebas.musicplayer.data.library.OverridingSongRepository
-import com.sebas.musicplayer.data.library.SongEdit
 import com.sebas.musicplayer.data.library.SongRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
 import com.sebas.musicplayer.data.settings.AppSettings
 import com.sebas.musicplayer.data.settings.SongSort
 import com.sebas.musicplayer.data.settings.SongSortField
@@ -20,7 +17,6 @@ import com.sebas.musicplayer.playback.PlayerState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -42,8 +38,7 @@ class LibraryViewModel(
     private val playerController: PlayerController,
     private val settings: AppSettings,
     deletions: Flow<Set<Long>>,
-    private val editor: OverridingSongRepository,
-    private val edits: MutableSharedFlow<Unit>,
+    private val edits: Flow<Unit>,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -61,10 +56,6 @@ class LibraryViewModel(
     val sort: StateFlow<SongSort> = settings.state.map { it.songSort.orDefault() }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, settings.current.songSort.orDefault())
 
-    /** Ids marcados en el modo selección; vacío = modo normal. */
-    private val _selected = MutableStateFlow<Set<Long>>(emptySet())
-    val selected: StateFlow<Set<Long>> = _selected.asStateFlow()
-
     private var loaded = false
     private var loading = false
     private var reloadPending = false
@@ -76,7 +67,6 @@ class LibraryViewModel(
         viewModelScope.launch {
             deletions.collect { ids ->
                 allSongs = allSongs.filter { it.id !in ids }
-                _selected.update { it - ids }
                 if (loaded) publish()
             }
         }
@@ -113,7 +103,6 @@ class LibraryViewModel(
         viewModelScope.launch {
             try {
                 allSongs = songRepository.getSongs(forceRefresh)
-                _selected.update { sel -> sel.filterTo(HashSet()) { id -> allSongs.any { it.id == id } } }
                 publish()
                 loaded = true
             } catch (e: CancellationException) {
@@ -139,78 +128,6 @@ class LibraryViewModel(
 
     private fun SongSort.orDefault() = if (field == SongSortField.ORIGINAL) SongSort() else this
 
-    fun startSelection(songId: Long) { _selected.value = setOf(songId) }
-
-    fun toggleSelected(songId: Long) = _selected.update { if (songId in it) it - songId else it + songId }
-
-    fun selectAll() {
-        _selected.value = (_uiState.value as? LibraryUiState.Success)?.songs?.mapTo(HashSet()) { it.id } ?: emptySet()
-    }
-
-    fun clearSelection() { _selected.value = emptySet() }
-
-    fun selectedSongs(): List<Song> {
-        val ids = _selected.value
-        return (_uiState.value as? LibraryUiState.Success)?.songs?.filter { it.id in ids }.orEmpty()
-    }
-
-    /** Artista, álbum y género comunes a toda la selección, para rellenar el diálogo ("" si difieren). */
-    fun commonMetadata(): Triple<String, String, String> {
-        val songs = selectedSongs()
-        val artist = songs.map { it.artist }.distinct().singleOrNull().orEmpty()
-        val album = songs.map { it.album }.distinct().singleOrNull().orEmpty()
-        val genre = songs.map { it.genre }.distinct().singleOrNull().orEmpty()
-        return Triple(artist, album, genre)
-    }
-
-    /** Aplica artista, álbum y/o género a toda la selección; un campo en blanco no se toca. */
-    fun applyMetadata(artist: String, album: String, genre: String = "") {
-        val a = artist.trim().ifEmpty { null }
-        val b = album.trim().ifEmpty { null }
-        val g = genre.trim().ifEmpty { null }
-        if (a == null && b == null && g == null) return
-        saveEdits(selectedSongs().map { SongEdit(it.id, artist = a, album = b, genre = g) })
-    }
-
-    /** Descargas de YouTube: separa "Artista - Título" del nombre de cada canción. Las que no tienen " - " se dejan igual. */
-    fun splitArtistFromTitle() {
-        saveEdits(selectedSongs().mapNotNull { song ->
-            val parts = song.title.split(" - ", limit = 2)
-            val artist = parts.getOrNull(0)?.trim().orEmpty()
-            val title = parts.getOrNull(1)?.trim().orEmpty()
-            if (artist.isEmpty() || title.isEmpty()) null else SongEdit(song.id, title = title, artist = artist)
-        })
-    }
-
-    /** Quita las correcciones y vuelve a los metadatos del archivo. */
-    fun restoreOriginalMetadata() {
-        val ids = selectedSongs().map { it.id }
-        viewModelScope.launch {
-            editor.clearEdits(ids)
-            clearSelection()
-            edits.emit(Unit)
-        }
-    }
-
-    private fun saveEdits(list: List<SongEdit>) {
-        viewModelScope.launch {
-            editor.applyEdits(list)
-            clearSelection()
-            edits.emit(Unit)
-        }
-    }
-
-    fun playNextSelected() {
-        // En orden inverso para que queden en el mismo orden de la lista.
-        selectedSongs().asReversed().forEach(playerController::playNext)
-        clearSelection()
-    }
-
-    fun addSelectedToQueue() {
-        selectedSongs().forEach(playerController::addToQueue)
-        clearSelection()
-    }
-
     fun onSongClick(index: Int) {
         val songs = (_uiState.value as? LibraryUiState.Success)?.songs ?: return
         playerController.playQueue(songs, index)
@@ -230,7 +147,6 @@ class LibraryViewModel(
                     app.container.playerController,
                     app.container.settings,
                     app.container.songDeletions,
-                    app.container.songEditor,
                     app.container.songEdits,
                 )
             }
