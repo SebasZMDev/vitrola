@@ -80,17 +80,7 @@ fun SongRow(
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 SongArtwork(artworkUri = song.artworkUri, modifier = Modifier.size(48.dp))
                 if (selectionMode) {
-                    Box(
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-                            .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Icon(Icons.Filled.Check, contentDescription = "Seleccionada", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
-                    }
+                    SelectionCheck(selected, Modifier.align(Alignment.BottomEnd))
                 } else if (isCurrent) {
                     Box(
                         Modifier
@@ -105,7 +95,9 @@ fun SongRow(
             }
         } else if (trackNumber != null) {
             Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-                if (isCurrent) {
+                if (selectionMode) {
+                    SelectionCheck(selected)
+                } else if (isCurrent) {
                     PlayingIndicator()
                 } else {
                     Text(
@@ -135,6 +127,22 @@ fun SongRow(
             )
         }
         trailing?.invoke()
+    }
+}
+
+/** Círculo de marca del modo selección. */
+@Composable
+private fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(if (selected) colors.primary else colors.surface.copy(alpha = 0.85f))
+            .border(2.dp, if (selected) colors.primary else colors.onSurfaceVariant, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Icon(Icons.Filled.Check, contentDescription = "Seleccionada", tint = colors.onPrimary, modifier = Modifier.size(15.dp))
     }
 }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,14 +37,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sebas.musicplayer.data.settings.SongSort
 import com.sebas.musicplayer.domain.library.Album
+import com.sebas.musicplayer.domain.library.ListDefaultSort
+import com.sebas.musicplayer.domain.library.sortSongs
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.ui.components.ArtworkGlow
 import com.sebas.musicplayer.ui.components.SongArtwork
-import com.sebas.musicplayer.ui.components.SongMenuButton
-import com.sebas.musicplayer.ui.components.SongRow
+import com.sebas.musicplayer.ui.components.SelectableSong
+import com.sebas.musicplayer.ui.components.SelectableSongRow
+import com.sebas.musicplayer.ui.components.SelectionBar
+import com.sebas.musicplayer.ui.components.SortButton
 import com.sebas.musicplayer.ui.components.formatDuration
 import com.sebas.musicplayer.ui.components.rememberArtworkColor
+import com.sebas.musicplayer.ui.components.rememberListSort
+import com.sebas.musicplayer.ui.components.rememberSongSelection
 
 @Composable
 fun AlbumDetailRoute(albumId: Long, onBack: () -> Unit) {
@@ -55,6 +63,7 @@ fun AlbumDetailRoute(albumId: Long, onBack: () -> Unit) {
     // Los géneros reutilizan esta pantalla (sus ids son negativos).
     val loaded = state as? BrowseState.Loaded
     val album = (loaded?.albums?.firstOrNull { it.id == albumId } ?: loaded?.genres?.firstOrNull { it.id == albumId })
+    val (sort, onSortChange) = rememberListSort("album:$albumId")
     AlbumDetailScreen(
         state = state,
         album = album,
@@ -63,6 +72,8 @@ fun AlbumDetailRoute(albumId: Long, onBack: () -> Unit) {
         onRetry = viewModel::load,
         onPlay = viewModel::play,
         onShuffle = viewModel::shuffle,
+        sort = sort,
+        onSortChange = onSortChange,
     )
 }
 
@@ -76,22 +87,36 @@ internal fun AlbumDetailScreen(
     onRetry: () -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onShuffle: (List<Song>) -> Unit,
+    sort: SongSort,
+    onSortChange: (SongSort) -> Unit,
 ) {
+    // (número de pista, canción) en el orden visible: el número acompaña a su canción.
+    val tracks = remember(album, sort) {
+        sortSongs(album?.songs.orEmpty().mapIndexed { index, song -> index + 1 to song }, sort) { it.second }
+    }
+    val items = remember(tracks) { tracks.map { (_, song) -> SelectableSong(song.id, song) } }
+    val visible = remember(tracks) { tracks.map { it.second } }
+    val selection = rememberSongSelection()
     val glow = rememberArtworkColor(album?.artworkUri)
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ArtworkGlow(glow, Modifier.fillMaxWidth().height(380.dp))
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
-                    title = {},
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                )
+                // Solo con el álbum cargado: la barra descarta las marcas que no estén en [items].
+                if (selection.active && album != null) {
+                    SelectionBar(selection = selection, items = items, modifier = Modifier.statusBarsPadding())
+                } else {
+                    TopAppBar(
+                        title = {},
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    )
+                }
             },
         ) { padding ->
             BrowseStatus(state, "Álbum no encontrado", album == null, onRetry, Modifier.padding(padding)) {
@@ -127,20 +152,23 @@ internal fun AlbumDetailScreen(
                                     modifier = Modifier.padding(top = 4.dp),
                                 )
                                 PlayShuffleButtons(
-                                    onPlay = { onPlay(album.songs, 0) },
-                                    onShuffle = { onShuffle(album.songs) },
+                                    onPlay = { onPlay(visible, 0) },
+                                    onShuffle = { onShuffle(visible) },
                                     modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
                                 )
+                                Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.CenterEnd) {
+                                    SortButton(sort, onSortChange)
+                                }
                             }
                         }
-                        itemsIndexed(album.songs, key = { _, song -> song.id }, contentType = { _, _ -> "song" }) { index, song ->
-                            SongRow(
-                                song = song,
-                                isCurrent = song.id == currentSongId,
-                                onClick = { onPlay(album.songs, index) },
+                        itemsIndexed(items, key = { _, item -> item.key }, contentType = { _, _ -> "song" }) { index, item ->
+                            SelectableSongRow(
+                                selection = selection,
+                                item = item,
+                                isCurrent = item.song.id == currentSongId,
+                                onPlay = { onPlay(visible, index) },
                                 showArtwork = false,
-                                trackNumber = index + 1,
-                                trailing = { SongMenuButton(song) },
+                                trackNumber = tracks[index].first,
                             )
                         }
                     }
@@ -156,6 +184,6 @@ private fun AlbumDetailPreview() {
     val songs = (1L..4L).map { Song(it, Uri.EMPTY, "Canción $it", "Artista", "Álbum", 1L, 185_000L, null) }
     val album = Album(1L, "Álbum", "Artista", Uri.EMPTY, songs)
     MaterialTheme {
-        AlbumDetailScreen(BrowseState.Loaded(listOf(album), emptyList()), album, 2L, {}, {}, { _, _ -> }, {})
+        AlbumDetailScreen(BrowseState.Loaded(listOf(album), emptyList()), album, 2L, {}, {}, { _, _ -> }, {}, ListDefaultSort, {})
     }
 }
