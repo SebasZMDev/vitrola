@@ -10,14 +10,22 @@ import org.junit.Test
 class LibraryGroupingTest {
     private val uri = mockk<Uri>()
 
-    private fun song(id: Long, title: String = "t$id", artist: String = "A", album: String = "Al", albumId: Long = 1, durationMs: Long = 1000) =
-        Song(id, uri, title, artist, album, albumId, durationMs, null)
+    private fun song(id: Long, title: String = "t$id", artist: String = "A", album: String = "Al", albumId: Long = 1, durationMs: Long = 1000, genre: String? = null) =
+        Song(id, uri, title, artist, album, albumId, durationMs, null, genre)
 
     @Test
-    fun `groupAlbums junta por albumId y suma duracion`() {
-        val albums = groupAlbums(listOf(song(1, albumId = 1, durationMs = 100), song(2, albumId = 1, durationMs = 200), song(3, albumId = 2, album = "Otro")))
+    fun `groupAlbums junta por nombre aunque el albumId difiera y suma duracion`() {
+        val albums = groupAlbums(listOf(song(1, albumId = 1, durationMs = 100), song(2, album = " al ", albumId = 9, durationMs = 200), song(3, albumId = 2, album = "Otro")))
         assertEquals(2, albums.size)
-        assertEquals(300L, albums.first { it.id == 1L }.durationMs)
+        assertEquals(300L, albums.first { it.title == "Al" }.durationMs)
+    }
+
+    @Test
+    fun `groupGenres ignora canciones sin genero y ordena por tamano con ids negativos`() {
+        val genres = groupGenres(listOf(song(1, genre = "Jazz"), song(2, genre = "jazz "), song(3, genre = "Rock"), song(4)))
+        assertEquals(listOf("Jazz", "Rock"), genres.map { it.title })
+        assertEquals(2, genres.first().songs.size)
+        assertTrue(genres.all { it.id < 0 })
     }
 
     @Test

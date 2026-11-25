@@ -220,6 +220,13 @@ class MediaControllerPlayerController(context: Context) : PlayerController {
         if (index in 0 until c.mediaItemCount) c.removeMediaItem(index)
     }
 
+    override fun updateSongInfo(song: Song) = withController { c ->
+        val id = song.id.toString()
+        for (i in 0 until c.mediaItemCount) {
+            if (c.getMediaItemAt(i).mediaId == id) c.replaceMediaItem(i, song.toMediaItem())
+        }
+    }
+
     override fun clearQueue() = withController { c ->
         c.stop()
         c.clearMediaItems()

@@ -33,9 +33,12 @@ class BackupManager(
             favorites = statsDao.getAllFavorites().mapNotNull { f -> idToKey[f.songId]?.let { BackupFavorite(it, f.addedAt) } },
             stats = statsDao.getAllStats().mapNotNull { s -> idToKey[s.songId]?.let { BackupStat(it, s.playCount, s.lastPlayedAt) } },
             overrides = overrideDao.getAll().mapNotNull { o ->
-                idToKey[o.songId]?.let { BackupOverride(it, o.title, o.artist, o.album) }
+                idToKey[o.songId]?.let { BackupOverride(it, o.title, o.artist, o.album, o.genre) }
             },
             gains = gains?.getAll().orEmpty().mapNotNull { g -> idToKey[g.songId]?.let { BackupGain(it, g.gainDb) } },
+            library = songs.getSongs(false).mapNotNull { s ->
+                idToKey[s.id]?.let { BackupSong(it, s.title, s.artist, s.album, s.genre) }
+            },
         )
     }
 
@@ -73,7 +76,7 @@ class BackupManager(
         val overrides = data.overrides.mapNotNull { o ->
             val id = find(o.key) ?: return@mapNotNull null
             val old = currentOverrides[id]
-            SongOverrideEntity(id, o.title ?: old?.title, o.artist ?: old?.artist, o.album ?: old?.album)
+            SongOverrideEntity(id, o.title ?: old?.title, o.artist ?: old?.artist, o.album ?: old?.album, o.genre ?: old?.genre)
         }
         overrideDao.upsertAll(overrides)
 

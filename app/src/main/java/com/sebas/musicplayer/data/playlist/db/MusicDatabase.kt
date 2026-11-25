@@ -19,7 +19,7 @@ import com.sebas.musicplayer.playback.gain.SongGainEntity
         PlaylistEntity::class, PlaylistSongEntity::class, SongOverrideEntity::class,
         FavoriteEntity::class, PlayStatEntity::class, SongGainEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -64,12 +64,19 @@ abstract class MusicDatabase : RoomDatabase() {
             }
         }
 
+        /** v6: género puesto por el usuario. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `song_overrides` ADD COLUMN `genre` TEXT")
+            }
+        }
+
         @Volatile
         private var instance: MusicDatabase? = null
 
         fun get(context: Context): MusicDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MusicDatabase::class.java, "music.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 .also { instance = it }
         }

@@ -24,6 +24,18 @@ class BackupJsonTest {
     }
 
     @Test
+    fun `el genero de overrides se lee y la biblioteca sale en el json`() {
+        val data = BackupData(
+            exportedAt = 1L, playlists = emptyList(), favorites = emptyList(), stats = emptyList(),
+            overrides = listOf(BackupOverride(key, "Limpio", null, null, "Rock")),
+            library = listOf(BackupSong(key, "Canción (sub español)", "Artista", "Álbum", null)),
+        )
+        val text = BackupJson.encode(data)
+        assertTrue(text.contains("\"currentTitle\": \"Canción (sub español)\""))
+        assertEquals(data.overrides, BackupJson.decode(text).overrides)
+    }
+
+    @Test
     fun `respaldo viejo sin volumenes se sigue leyendo`() {
         val old = """{"app":"Vitrola","version":1,"exportedAt":1,"playlists":[],"favorites":[],"stats":[],"overrides":[]}"""
         assertTrue(BackupJson.decode(old).gains.isEmpty())

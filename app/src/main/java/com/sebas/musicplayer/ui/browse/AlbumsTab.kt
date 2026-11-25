@@ -42,8 +42,21 @@ internal fun AlbumsContent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val albums = (state as? BrowseState.Loaded)?.albums.orEmpty()
-    BrowseStatus(state, "No hay álbumes", albums.isEmpty(), onRetry, modifier, emptyIcon = Icons.Filled.Album) {
+    AlbumGrid(state, (state as? BrowseState.Loaded)?.albums.orEmpty(), "No hay álbumes", onAlbumClick, onRetry, modifier)
+}
+
+/** Cuadrícula de tarjetas; la usan Álbumes y Géneros. */
+@Composable
+internal fun AlbumGrid(
+    state: BrowseState,
+    albums: List<Album>,
+    emptyMessage: String,
+    onAlbumClick: (Long) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    showCount: Boolean = false,
+) {
+    BrowseStatus(state, emptyMessage, albums.isEmpty(), onRetry, modifier, emptyIcon = Icons.Filled.Album) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(150.dp),
             modifier = modifier,
@@ -52,14 +65,14 @@ internal fun AlbumsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(albums, key = { it.id }, contentType = { "album" }) { album ->
-                AlbumCard(album, onClick = { onAlbumClick(album.id) })
+                AlbumCard(album, showCount, onClick = { onAlbumClick(album.id) })
             }
         }
     }
 }
 
 @Composable
-private fun AlbumCard(album: Album, onClick: () -> Unit) {
+private fun AlbumCard(album: Album, showCount: Boolean, onClick: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -76,7 +89,7 @@ private fun AlbumCard(album: Album, onClick: () -> Unit) {
             modifier = Modifier.padding(start = 2.dp, end = 2.dp, top = 8.dp),
         )
         Text(
-            album.artist,
+            if (showCount) pluralSongs(album.songs.size) else album.artist,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

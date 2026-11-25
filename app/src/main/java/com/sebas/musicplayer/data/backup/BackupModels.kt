@@ -15,7 +15,10 @@ data class BackupPlaylist(val name: String, val songs: List<SongKey>)
 data class BackupFavorite(val key: SongKey, val addedAt: Long)
 data class BackupStat(val key: SongKey, val playCount: Int, val lastPlayedAt: Long)
 data class BackupGain(val key: SongKey, val gainDb: Float)
-data class BackupOverride(val key: SongKey, val title: String?, val artist: String?, val album: String?)
+data class BackupOverride(val key: SongKey, val title: String?, val artist: String?, val album: String?, val genre: String? = null)
+
+/** Una canción de la biblioteca tal como se ve hoy (solo informativo: al importar se ignora; los cambios van en overrides). */
+data class BackupSong(val key: SongKey, val title: String, val artist: String, val album: String, val genre: String?)
 
 data class BackupData(
     val exportedAt: Long,
@@ -24,9 +27,10 @@ data class BackupData(
     val stats: List<BackupStat>,
     val overrides: List<BackupOverride>,
     val gains: List<BackupGain> = emptyList(),
+    val library: List<BackupSong> = emptyList(),
 ) {
     companion object {
-        const val VERSION = 2
+        const val VERSION = 3
     }
 }
 

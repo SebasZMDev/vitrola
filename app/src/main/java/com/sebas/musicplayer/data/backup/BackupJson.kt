@@ -28,11 +28,20 @@ object BackupJson {
                     o.title?.let { put("newTitle", it) }
                     o.artist?.let { put("newArtist", it) }
                     o.album?.let { put("newAlbum", it) }
+                    o.genre?.let { put("newGenre", it) }
                 })
             }
         })
         put("gains", JSONArray().apply {
             data.gains.forEach { put(key(it.key).put("gainDb", it.gainDb.toDouble())) }
+        })
+        // Toda la biblioteca: title/artist/durationSec = originales del archivo (la llave); current* = como se ve hoy.
+        put("library", JSONArray().apply {
+            data.library.forEach { s ->
+                put(key(s.key).put("currentTitle", s.title).put("currentArtist", s.artist).put("currentAlbum", s.album).apply {
+                    s.genre?.let { put("currentGenre", it) }
+                })
+            }
         })
     }.toString(2)
 
@@ -53,7 +62,11 @@ object BackupJson {
                     BackupStat(readKey(it), it.optInt("playCount", 1), it.optLong("lastPlayedAt"))
                 },
                 overrides = root.optJSONArray("overrides").objects().map {
-                    BackupOverride(readKey(it), it.optStringOrNull("newTitle"), it.optStringOrNull("newArtist"), it.optStringOrNull("newAlbum"))
+                    BackupOverride(
+                        readKey(it), it.optStringOrNull("newTitle"), it.optStringOrNull("newArtist"),
+it.optStringOrNull("newAlbum"),
+                        it.optStringOrNull("newGenre"),
+                    )
                 },
                 gains = root.optJSONArray("gains").objects().map { BackupGain(readKey(it), it.optDouble("gainDb", 0.0).toFloat()) },
             )

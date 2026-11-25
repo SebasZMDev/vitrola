@@ -90,12 +90,13 @@ fun SongsTab(modifier: Modifier = Modifier) {
     }
 
     if (editingMetadata) {
-        val (artist, album) = viewModel.commonMetadata()
+        val (artist, album, genre) = viewModel.commonMetadata()
         EditMetadataDialog(
             count = selected.size,
             initialArtist = artist,
             initialAlbum = album,
-            onApply = { a, b -> editingMetadata = false; viewModel.applyMetadata(a, b) },
+            initialGenre = genre,
+            onApply = { a, b, g -> editingMetadata = false; viewModel.applyMetadata(a, b, g) },
             onSplitFromTitle = { editingMetadata = false; viewModel.splitArtistFromTitle() },
             onRestore = { editingMetadata = false; viewModel.restoreOriginalMetadata() },
             onDismiss = { editingMetadata = false },

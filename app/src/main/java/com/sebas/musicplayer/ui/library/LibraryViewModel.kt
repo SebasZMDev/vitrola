@@ -150,20 +150,22 @@ class LibraryViewModel(
         return (_uiState.value as? LibraryUiState.Success)?.songs?.filter { it.id in ids }.orEmpty()
     }
 
-    /** Artista y álbum comunes a toda la selección, para rellenar el diálogo ("" si difieren). */
-    fun commonMetadata(): Pair<String, String> {
+    /** Artista, álbum y género comunes a toda la selección, para rellenar el diálogo ("" si difieren). */
+    fun commonMetadata(): Triple<String, String, String> {
         val songs = selectedSongs()
         val artist = songs.map { it.artist }.distinct().singleOrNull().orEmpty()
         val album = songs.map { it.album }.distinct().singleOrNull().orEmpty()
-        return artist to album
+        val genre = songs.map { it.genre }.distinct().singleOrNull().orEmpty()
+        return Triple(artist, album, genre)
     }
 
-    /** Aplica artista y/o álbum a toda la selección; un campo en blanco no se toca. */
-    fun applyMetadata(artist: String, album: String) {
+    /** Aplica artista, álbum y/o género a toda la selección; un campo en blanco no se toca. */
+    fun applyMetadata(artist: String, album: String, genre: String = "") {
         val a = artist.trim().ifEmpty { null }
         val b = album.trim().ifEmpty { null }
-        if (a == null && b == null) return
-        saveEdits(selectedSongs().map { SongEdit(it.id, artist = a, album = b) })
+        val g = genre.trim().ifEmpty { null }
+        if (a == null && b == null && g == null) return
+        saveEdits(selectedSongs().map { SongEdit(it.id, artist = a, album = b, genre = g) })
     }
 
     /** Descargas de YouTube: separa "Artista - Título" del nombre de cada canción. Las que no tienen " - " se dejan igual. */

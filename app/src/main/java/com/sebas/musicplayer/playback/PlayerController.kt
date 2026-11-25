@@ -35,6 +35,8 @@ interface PlayerController {
     /** Vacía la cola y detiene la reproducción. */
     fun clearQueue()
     fun moveQueueItem(from: Int, to: Int)
+    /** Actualiza título, artista y álbum de [song] en la cola sin cortar la reproducción (tras editarla). */
+    fun updateSongInfo(song: Song) {}
 }
 
 data class PlayerState(

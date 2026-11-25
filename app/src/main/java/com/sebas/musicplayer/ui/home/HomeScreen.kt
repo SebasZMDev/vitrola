@@ -37,13 +37,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
-import com.sebas.musicplayer.ui.browse.AlbumsTab
-import com.sebas.musicplayer.ui.browse.ArtistsTab
+import com.sebas.musicplayer.ui.browse.ExploreTab
 import com.sebas.musicplayer.ui.library.SongsTab
 import com.sebas.musicplayer.ui.playlists.PlaylistsTab
 import kotlinx.coroutines.launch
 
-private val tabs = listOf("Canciones", "Playlists", "Álbumes", "Artistas")
+private val tabs = listOf("Canciones", "Playlists", "Explorar")
 
 /** Orden antiguo de las pestañas: el índice guardado antes del 2026-11-15 apunta a esta lista. */
 private val legacyTabs = listOf("Canciones", "Álbumes", "Artistas", "Playlists")
@@ -63,8 +62,9 @@ fun HomeScreen(
     val prefs = LocalContext.current.applicationContext.getSharedPreferences("ui_state", 0)
     // Se guarda el nombre de la pestaña (no su posición) para que cambiar el orden no la confunda.
     // Si solo existe el índice del orden antiguo, se traduce a su nombre.
-    val savedTab = prefs.getString(TAB_KEY, null)
-        ?: legacyTabs.getOrNull(prefs.getInt("home_tab", 0))
+    // Álbumes y Artistas viven ahora dentro de Explorar.
+    val savedTab = (prefs.getString(TAB_KEY, null) ?: legacyTabs.getOrNull(prefs.getInt("home_tab", 0)))
+        ?.let { if (it == "Álbumes" || it == "Artistas") "Explorar" else it }
     val pagerState = rememberPagerState(
         initialPage = tabs.indexOf(savedTab).coerceAtLeast(0),
         pageCount = { tabs.size },
@@ -121,8 +121,7 @@ fun HomeScreen(
                 when (page) {
                     0 -> SongsTab(modifier = pageModifier)
                     1 -> PlaylistsTab(onPlaylistClick = onPlaylistClick, onSmartListClick = onSmartListClick, modifier = pageModifier)
-                    2 -> AlbumsTab(onAlbumClick = onAlbumClick, modifier = pageModifier)
-                    else -> ArtistsTab(onArtistClick = onArtistClick, modifier = pageModifier)
+                    else -> ExploreTab(onAlbumClick = onAlbumClick, onArtistClick = onArtistClick, modifier = pageModifier)
                 }
             }
         }

@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Edita artista y álbum de varias canciones a la vez. Los cambios se guardan en la app
+ * Edita artista, álbum y género de varias canciones a la vez. Los cambios se guardan en la app
  * (no se escriben en los archivos), así que se pueden deshacer con "Restaurar originales".
  */
 @Composable
@@ -26,13 +26,15 @@ fun EditMetadataDialog(
     count: Int,
     initialArtist: String,
     initialAlbum: String,
-    onApply: (artist: String, album: String) -> Unit,
+    initialGenre: String,
+    onApply: (artist: String, album: String, genre: String) -> Unit,
     onSplitFromTitle: () -> Unit,
     onRestore: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var artist by remember { mutableStateOf(initialArtist) }
     var album by remember { mutableStateOf(initialAlbum) }
+    var genre by remember { mutableStateOf(initialGenre) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -58,6 +60,13 @@ fun EditMetadataDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                OutlinedTextField(
+                    value = genre,
+                    onValueChange = { genre = it },
+                    label = { Text("Género") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
                 OutlinedButton(onClick = onSplitFromTitle, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Text("Usar «Artista - Título» del nombre")
                 }
@@ -67,7 +76,7 @@ fun EditMetadataDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(artist, album) }) { Text("Aplicar") }
+            TextButton(onClick = { onApply(artist, album, genre) }) { Text("Aplicar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )

@@ -145,7 +145,6 @@ private fun PlaylistsContent(
         item(key = "smart", span = { GridItemSpan(maxLineSpan) }, contentType = "smart") {
             SmartListChips(onSmartListClick)
         }
-        item(key = "new", contentType = "new") { NewPlaylistCard(onNewPlaylist) }
         items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
             PlaylistCard(
                 playlist = playlist,
@@ -155,6 +154,8 @@ private fun PlaylistsContent(
                 onDelete = { onDelete(playlist) },
             )
         }
+        // Al final: las playlists propias primero, el botón de crear después.
+        item(key = "new", contentType = "new") { NewPlaylistCard(onNewPlaylist) }
     }
 }
 

@@ -12,6 +12,7 @@ import com.sebas.musicplayer.domain.library.Album
 import com.sebas.musicplayer.domain.library.Artist
 import com.sebas.musicplayer.domain.library.groupAlbums
 import com.sebas.musicplayer.domain.library.groupArtists
+import com.sebas.musicplayer.domain.library.groupGenres
 import com.sebas.musicplayer.domain.model.Song
 import com.sebas.musicplayer.playback.PlayerController
 import com.sebas.musicplayer.playback.PlayerState
@@ -29,7 +30,7 @@ import kotlinx.coroutines.withContext
 sealed interface BrowseState {
     data object Loading : BrowseState
     data object Error : BrowseState
-    data class Loaded(val albums: List<Album>, val artists: List<Artist>) : BrowseState
+    data class Loaded(val albums: List<Album>, val artists: List<Artist>, val genres: List<Album> = emptyList()) : BrowseState
 }
 
 class BrowseViewModel(
@@ -37,6 +38,7 @@ class BrowseViewModel(
     private val playerController: PlayerController,
     settings: AppSettings,
     deletions: kotlinx.coroutines.flow.Flow<Set<Long>>,
+    private val edits: kotlinx.coroutines.flow.Flow<Unit>,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<BrowseState>(BrowseState.Loading)
@@ -49,6 +51,7 @@ class BrowseViewModel(
     init {
         load()
         viewModelScope.launch { deletions.collect { load(forceRefresh = true) } }
+        viewModelScope.launch { edits.collect { load() } }
         // Si cambian carpetas excluidas, WhatsApp o la duración mínima, se agrupa de nuevo.
         viewModelScope.launch {
             settings.state.map { it.libraryVersion }.distinctUntilChanged().drop(1).collect { load() }
@@ -62,7 +65,7 @@ class BrowseViewModel(
             _state.value = try {
                 val songs = repository.getSongs(forceRefresh)
                 withContext(Dispatchers.Default) {
-                    BrowseState.Loaded(groupAlbums(songs), groupArtists(songs))
+                    BrowseState.Loaded(groupAlbums(songs), groupArtists(songs), groupGenres(songs))
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -80,7 +83,7 @@ class BrowseViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MusicApp
-                BrowseViewModel(app.container.songRepository, app.container.playerController, app.container.settings, app.container.songDeletions)
+                BrowseViewModel(app.container.songRepository, app.container.playerController, app.container.settings, app.container.songDeletions, app.container.songEdits)
             }
         }
     }

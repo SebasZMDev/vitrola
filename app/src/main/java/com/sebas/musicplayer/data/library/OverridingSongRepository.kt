@@ -3,7 +3,7 @@ package com.sebas.musicplayer.data.library
 import com.sebas.musicplayer.domain.model.Song
 
 /** Cambio de metadatos para una canción; null = no tocar ese campo. */
-data class SongEdit(val songId: Long, val title: String? = null, val artist: String? = null, val album: String? = null)
+data class SongEdit(val songId: Long, val title: String? = null, val artist: String? = null, val album: String? = null, val genre: String? = null)
 
 /**
  * Aplica por encima de [delegate] los metadatos corregidos por el usuario (guardados en Room).
@@ -27,6 +27,7 @@ class OverridingSongRepository(
                 title = o.title ?: song.title,
                 artist = o.artist ?: song.artist,
                 album = o.album ?: song.album,
+                genre = o.genre ?: song.genre,
             )
         }
     }
@@ -43,6 +44,7 @@ class OverridingSongRepository(
                     title = e.title ?: old?.title,
                     artist = e.artist ?: old?.artist,
                     album = e.album ?: old?.album,
+                    genre = e.genre ?: old?.genre,
                 )
             },
         )

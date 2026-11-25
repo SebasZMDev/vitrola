@@ -52,7 +52,9 @@ fun AlbumDetailRoute(albumId: Long, onBack: () -> Unit) {
     val player by viewModel.playerState.collectAsStateWithLifecycle()
     // Solo recompone cuando cambia la canción, no con cada tick de posición (cada 500 ms).
     val currentSongId by remember { derivedStateOf { player.currentSong?.id } }
-    val album = (state as? BrowseState.Loaded)?.albums?.firstOrNull { it.id == albumId }
+    // Los géneros reutilizan esta pantalla (sus ids son negativos).
+    val loaded = state as? BrowseState.Loaded
+    val album = (loaded?.albums?.firstOrNull { it.id == albumId } ?: loaded?.genres?.firstOrNull { it.id == albumId })
     AlbumDetailScreen(
         state = state,
         album = album,

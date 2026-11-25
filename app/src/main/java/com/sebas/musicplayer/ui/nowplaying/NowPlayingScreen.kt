@@ -92,6 +92,7 @@ import com.sebas.musicplayer.playback.PlayerState
 import com.sebas.musicplayer.playback.RepeatMode
 import com.sebas.musicplayer.ui.components.EmptyState
 import com.sebas.musicplayer.ui.components.SongArtwork
+import com.sebas.musicplayer.ui.components.SongMenuButton
 import com.sebas.musicplayer.ui.components.formatDuration
 import com.sebas.musicplayer.ui.components.rememberArtworkColor
 import com.sebas.musicplayer.ui.sleeptimer.SleepTimerAction
@@ -222,7 +223,7 @@ fun NowPlayingScreen(
                     )
                 },
         ) {
-            Header(album = song?.album, side = sideLabel(state), onBack = onBack)
+            Header(song = song, side = sideLabel(state), onBack = onBack)
             if (song == null) {
                 EmptyState(
                     icon = Icons.Filled.MusicNote,
@@ -369,7 +370,8 @@ private fun sideLabel(state: PlayerState): String {
 }
 
 @Composable
-private fun Header(album: String?, side: String, onBack: () -> Unit) {
+private fun Header(song: Song?, side: String, onBack: () -> Unit) {
+    val album = song?.album
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -394,7 +396,7 @@ private fun Header(album: String?, side: String, onBack: () -> Unit) {
             }
         }
         // Mismo ancho que el botón de la izquierda para que el título quede centrado.
-        Spacer(Modifier.size(48.dp))
+        if (song != null) SongMenuButton(song) else Spacer(Modifier.size(48.dp))
     }
 }
 

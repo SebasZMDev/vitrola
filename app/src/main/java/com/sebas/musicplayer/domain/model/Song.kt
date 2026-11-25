@@ -15,4 +15,6 @@ data class Song(
     val albumId: Long,
     val durationMs: Long,
     val artworkUri: Uri?,
+    /** Género puesto por el usuario (el del archivo casi nunca sirve); null = sin género. */
+    val genre: String? = null,
 )
