@@ -6,12 +6,11 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.SystemClock
+import android.text.format.DateUtils
 import android.view.KeyEvent
 import android.view.View
 import android.widget.RemoteViews
@@ -42,6 +41,10 @@ data class WidgetState(
     val nextTitle: String?,
     val isFavorite: Boolean,
 )
+
+/** Mientras la canción suena solo cambia la posición: basta con mover la barra. */
+internal fun onlyPositionChanged(old: WidgetState?, new: WidgetState?): Boolean =
+    old != null && new != null && old.copy(positionMs = new.positionMs) == new
 
 /**
  * Widget de pantalla de inicio: cabecera "LADO A · PISTA 03 DE 12", portada, título, artista, lo que sigue,
@@ -83,9 +86,9 @@ class PlayerWidget : AppWidgetProvider() {
         private val io = Executors.newSingleThreadExecutor()
         private val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-        /** Última portada decodificada (solo la usa el hilo [io]): pausar/reanudar no vuelve a leer el archivo. */
+        /** Funda ya dibujada de la última canción (solo la usa el hilo [io]): pausar/reanudar no la repite. */
         private var cachedCoverUri: Uri? = null
-        private var cachedCover: Bitmap? = null
+        private var cachedArt: Bitmap? = null
         private var cachedTint: Int? = null
 
         /** [force]: redibujar aunque el estado sea igual (el sistema acaba de poner o restaurar el widget). */
@@ -93,22 +96,44 @@ class PlayerWidget : AppWidgetProvider() {
             // El servicio avisa en cada evento del reproductor; si nada visible cambió, no hacemos nada.
             if (!force && state == last) return
             val app = context.applicationContext
+            val progressOnly = !force && onlyPositionChanged(last, state)
             last = state
             val manager = AppWidgetManager.getInstance(app)
             val ids = manager.getAppWidgetIds(ComponentName(app, PlayerWidget::class.java))
             if (ids.isEmpty()) return
             io.execute {
-                val uri = state?.artworkUri
-                if (uri != cachedCoverUri) {
-                    cachedCover = uri?.let { loadCover(app, it) }
-                    cachedTint = cachedCover?.let(::tintFrom)
-                    cachedCoverUri = uri
+                if (progressOnly && state != null) {
+                    // Sin reenviar la carátula ni el resto del widget.
+                    val views = RemoteViews(app.packageName, R.layout.widget_player)
+                    bindProgress(views, state)
+                    manager.partiallyUpdateAppWidget(ids, views)
+                    return@execute
                 }
-                manager.updateAppWidget(ids, build(app, state, cachedCover, cachedTint))
+                val uri = state?.artworkUri
+                val art = cachedArt?.takeIf { uri == cachedCoverUri } ?: run {
+                    val cover = uri?.let { loadCover(app, it) }
+                    cachedTint = cover?.let(::tintFrom)
+                    cachedCoverUri = uri
+                    sleeveArt(cover).also { cachedArt = it }
+                }
+                manager.updateAppWidget(ids, build(app, state, art, cachedTint))
             }
         }
 
-        private fun build(context: Context, state: WidgetState?, cover: Bitmap?, tint: Int?): RemoteViews {
+        private fun bindProgress(views: RemoteViews, state: WidgetState?) {
+            // Tiempo: el Chronometer cuenta solo mientras suena, el widget no se redibuja cada segundo.
+            val pos = state?.positionMs ?: 0L
+            val dur = state?.durationMs ?: 0L
+            val playing = state?.isPlaying == true
+            views.setChronometer(R.id.widget_elapsed, SystemClock.elapsedRealtime() - pos, null, playing)
+            // En pausa va un texto fijo: un Chronometer detenido se recalcula cada vez que el launcher redibuja.
+            views.setTextViewText(R.id.widget_paused, DateUtils.formatElapsedTime(pos / 1000))
+            views.setViewVisibility(R.id.widget_elapsed, if (playing) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_paused, if (playing) View.GONE else View.VISIBLE)
+            views.setProgressBar(R.id.widget_progress, 1000, if (dur > 0) (pos * 1000 / dur).toInt() else 0, false)
+        }
+
+        private fun build(context: Context, state: WidgetState?, art: Bitmap, tint: Int?): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_player)
             views.setTextViewText(R.id.widget_title, state?.title?.ifBlank { null } ?: "Vitrola")
             views.setTextViewText(R.id.widget_artist, state?.artist?.ifBlank { null } ?: "Toca para abrir")
@@ -118,22 +143,13 @@ class PlayerWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_next_up, if (next.isNullOrBlank()) View.GONE else View.VISIBLE)
             if (!next.isNullOrBlank()) views.setTextViewText(R.id.widget_next_up, "Sigue · $next")
 
-            if (cover != null) views.setImageViewBitmap(R.id.widget_cover, cover)
-            else views.setImageViewResource(R.id.widget_cover, R.mipmap.ic_launcher)
+            views.setImageViewBitmap(R.id.widget_cover, art)
             // Fondo teñido con el color de la carátula (oscurecido para que el texto crema se lea).
-            // setBackgroundTintList solo es remoto desde Android 12; antes queda el carbón de siempre.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                views.setColorStateList(
-                    R.id.widget_root, "setBackgroundTintList", ColorStateList.valueOf(tint ?: 0xFF0B0B0C.toInt()),
-                )
-            }
+            views.setInt(R.id.widget_tint, "setColorFilter", tint ?: 0xFF0B0B0C.toInt())
 
-            // Tiempo: el Chronometer cuenta solo mientras suena, el widget no se redibuja cada segundo.
-            val pos = state?.positionMs ?: 0L
             val dur = state?.durationMs ?: 0L
-            views.setChronometer(R.id.widget_elapsed, SystemClock.elapsedRealtime() - pos, null, state?.isPlaying == true)
             views.setTextViewText(R.id.widget_total, if (dur > 0) formatTime(dur) else "")
-            views.setProgressBar(R.id.widget_progress, 1000, if (dur > 0) (pos * 1000 / dur).toInt() else 0, false)
+            bindProgress(views, state)
 
             views.setImageViewResource(
                 R.id.widget_play,
@@ -190,8 +206,8 @@ class PlayerWidget : AppWidgetProvider() {
             val pixels = IntArray(24 * 24)
             small.getPixels(pixels, 0, 24, 0, 0, 24, 24)
             val dominant = dominantColor(pixels) ?: return null
-            // 70 % hacia el carbón: se nota el tono sin perder el estilo oscuro.
-            return ColorUtils.blendARGB(dominant, 0xFF0B0B0C.toInt(), 0.7f)
+            // 55 % hacia el carbón; el degradado del fondo termina de oscurecer el lado del texto.
+            return ColorUtils.blendARGB(dominant, 0xFF0B0B0C.toInt(), 0.55f)
         }
 
         private fun mediaKey(context: Context, keyCode: Int): PendingIntent {
